@@ -1,30 +1,16 @@
-<script setup>
-import HelloWorld from './components/HelloWorld.vue'
-</script>
-
+<!-- App.vue -->
 <template>
   <div>
-    <a href="https://vite.dev" target="_blank">
-      <img src="/vite.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
+    <p>连接状态: {{ isConnected ? '已连接' : '已断开' }}</p>
+    <p>最新消息: {{ messageData || '暂无' }}</p>
+    <button @click="send({ type: 'ping', timestamp: Date.now() })">
+      发送测试消息
+    </button>
   </div>
-  <HelloWorld msg="Vite + Vue" />
 </template>
 
-<style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
-}
-</style>
+<script setup>
+import useWebSocket from '@/composables/useWebSocket'
+
+const { isConnected, messageData, send } = useWebSocket('wss://echo.websocket.events')
+</script>
