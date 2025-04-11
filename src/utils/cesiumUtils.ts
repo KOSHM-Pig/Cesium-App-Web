@@ -2,6 +2,7 @@ import * as Cesium from 'cesium';
 import { ref } from 'vue';
 import { mapProviders } from './mapProviders';
 import { usePopup } from './popup';
+import Camera from 'cesium/Source/Scene/Camera';
 const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MWU0NGIwMS1hZWQyLTRlODktYmExMi04NzJjOGYyMTE5Y2EiLCJpZCI6MjkxMjMzLCJpYXQiOjE3NDQzNjQ4ODF9.huZ7JqhHqnuhQWzjP6qxJIS6LCUPpbArJqZd1JzTfUA' // 替换实际token
 const { success } = usePopup();
 Cesium.Ion.defaultAccessToken = token; // 设置Cesium Ion的访问令牌
@@ -199,6 +200,126 @@ export const useCesium = () => {
     return null;
   };
 
+
+      
+      // 更新高度信息的函数
+      const updateHeightInfo = () => {
+          const cartesian = viewer.camera.position;
+          const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+          const alt = viewer.camera.positionCartographic.height;
+          height_num.value = Math.round(alt);
+      
+          // 根据高度切换单位
+          if (alt >= 10000) {
+              height.value = `${(alt / 1000).toFixed(2)} km`;
+          } else {
+              height.value = `${alt.toFixed(2)} m`;
+          }
+      };
+
+      // 定义节流时间间隔（毫秒）
+      const THROTTLE_INTERVAL = 100;
+      
+      // 记录上次调用 CameraZoomIn 和 CameraZoomOut 的时间
+      let lastZoomInTime = 0;
+      let lastZoomOutTime = 0;
+
+      // 放大相机
+      const CameraZoomIn = () => {
+          const now = Date.now();
+          // 检查是否在节流时间间隔内
+          if (now - lastZoomInTime < THROTTLE_INTERVAL) {
+              console.log('操作过于频繁，请稍后再试');
+              return;
+          }
+          lastZoomInTime = now;
+      
+          // 手动更新高度信息
+          updateHeightInfo();
+      
+          if (viewer) {
+              // 检查当前对地高度，如果小于等于 50 米则不进行放大操作
+              if (height_num.value && height_num.value <= 50) {
+                  console.log('已经达到最小高度，无法继续放大');
+                  return;
+              }
+      
+              const currentPosition = viewer.camera.position;
+              const direction = viewer.camera.direction;
+              let zoomStep = 100; // 最小步长作为默认值
+      
+              // 根据对地高度的 50% 调整放大步长
+              if (height_num.value) {
+                  zoomStep = Math.max(100, height_num.value * 0.5);
+              }
+      
+              const newPosition = Cesium.Cartesian3.add(
+                  currentPosition,
+                  Cesium.Cartesian3.multiplyByScalar(direction, -zoomStep, new Cesium.Cartesian3()),
+                  new Cesium.Cartesian3()
+              );
+      
+              viewer.camera.flyTo({
+                  destination: newPosition,
+                  orientation: {
+                      heading: viewer.camera.heading,
+                      pitch: viewer.camera.pitch,
+                      roll: viewer.camera.roll
+                  },
+                  duration: 1 // 飞行动画持续时间（秒）
+              });
+      
+              console.log('CameraZoomIn called');
+              console.log('Current camera position:', currentPosition);
+              console.log('New camera position:', newPosition);
+          }
+      };
+
+      // 缩小相机
+      const CameraZoomOut = () => {
+          const now = Date.now();
+          // 检查是否在节流时间间隔内
+          if (now - lastZoomOutTime < THROTTLE_INTERVAL) {
+              console.log('操作过于频繁，请稍后再试');
+              return;
+          }
+          lastZoomOutTime = now;
+      
+          // 手动更新高度信息
+          updateHeightInfo();
+      
+          if (viewer) {
+              const currentPosition = viewer.camera.position;
+              const direction = viewer.camera.direction;
+              let zoomStep = 100; // 最小步长作为默认值
+      
+              // 根据对地高度的 50% 调整缩小步长
+              if (height_num.value) {
+                  zoomStep = Math.max(100, height_num.value * 0.5);
+              }
+      
+              const newPosition = Cesium.Cartesian3.add(
+                  currentPosition,
+                  Cesium.Cartesian3.multiplyByScalar(direction, zoomStep, new Cesium.Cartesian3()),
+                  new Cesium.Cartesian3()
+              );
+      
+              viewer.camera.flyTo({
+                  destination: newPosition,
+                  orientation: {
+                      heading: viewer.camera.heading,
+                      pitch: viewer.camera.pitch,
+                      roll: viewer.camera.roll
+                  },
+                  duration: 1 // 飞行动画持续时间（秒）
+              });
+      
+              console.log('CameraZoomOut called');
+              console.log('Current camera position:', currentPosition);
+              console.log('New camera position:', newPosition);
+          }
+      };
+
   return {
     cesiumContainer,
     selectedMap,
@@ -217,8 +338,11 @@ export const useCesium = () => {
     addPointByLatLon,
     switchTo2D,
     switchTo3D,
-    getCameraGroundElevation
+    getCameraGroundElevation,
+    CameraZoomIn,
+    CameraZoomOut
 
+    
     
   };
 };

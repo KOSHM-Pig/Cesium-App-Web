@@ -25,7 +25,13 @@
       class="cesium-container"
       :style="{ cursor: activeTool === '标点' ? 'crosshair' : 'default' }"
       @click="handleMapClick"
-    ></div>
+    >
+      <!-- 新增放大缩小按钮组 -->
+      <div class="zoom-buttons">
+        <button @click="CameraZoomOut" class="map-control__button">放大</button>
+        <button @click="CameraZoomIn" class="map-control__button">缩小</button>
+      </div>
+    </div>
     <!-- 状态栏 -->
     <div class="status-bar">
       <span class="status-item">{{ longitude || 'N/A' }}</span>
@@ -69,7 +75,9 @@ export default defineComponent({
       addPointByLatLon,
       switchTo2D,
       switchTo3D,
-      getCameraGroundElevation
+      getCameraGroundElevation,
+      CameraZoomIn,
+      CameraZoomOut
     } = useCesium();
 
     // 定义激活的工具
@@ -89,12 +97,10 @@ export default defineComponent({
 
     const handleMapClick = () => {
       if (activeTool.value === '标点') {
-       
         if (longitude_num && latitude_num) {
-          addPointByLatLon(Number(latitude_num.value),Number(longitude_num.value),Number (getCameraGroundElevation(Number(latitude_num.value),Number(longitude_num.value) )),Cesium.Color.RED);
+          addPointByLatLon(Number(latitude_num.value), Number(longitude_num.value), Number(getCameraGroundElevation(Number(latitude_num.value), Number(longitude_num.value))), Cesium.Color.RED);
         }
       }
-      
     };
 
     // 定义当前视图模式
@@ -129,8 +135,26 @@ export default defineComponent({
       handleToolClick,
       handleMapClick,
       currentViewMode,
-      toggleViewMode
+      toggleViewMode,
+      CameraZoomIn,
+      CameraZoomOut
     };
   },
 });
 </script>
+
+<style scoped>
+.cesium-container {
+  position: relative; /* 确保子元素的绝对定位相对于此容器 */
+}
+
+.zoom-buttons {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1; /* 确保按钮显示在其他元素之上 */
+}
+</style>
