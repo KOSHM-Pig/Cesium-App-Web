@@ -31,8 +31,12 @@
       <span class="status-item">{{ longitude || 'N/A' }}</span>
       <span class="status-item">{{ latitude || 'N/A' }}</span>
       <span class="status-item">{{ height || 'N/A' }}</span>
+      <span></span>
+      <!-- 添加 2D/3D 切换按钮 -->
+      <button @click="toggleViewMode" class="status-item view-mode-button">
+        {{ currentViewMode === '2D' ? '切换到 3D' : '切换到 2D' }}
+      </button>
     </div>
-
   </div>
 </template>
 
@@ -62,7 +66,9 @@ export default defineComponent({
       latitude_num,
       height_num,
       addPoint,
-      addPointByLatLon
+      addPointByLatLon,
+      switchTo2D,
+      switchTo3D
     } = useCesium();
 
     // 定义激活的工具
@@ -89,7 +95,19 @@ export default defineComponent({
       }
     };
 
+    // 定义当前视图模式
+    const currentViewMode = ref('3D');
 
+    // 切换视图模式的方法
+    const toggleViewMode = () => {
+      if (currentViewMode.value === '2D') {
+        switchTo2D();
+        currentViewMode.value = '3D';
+      } else {
+        switchTo3D();
+        currentViewMode.value = '2D';
+      }
+    };
 
     onMounted(() => {
       initializeCesium();
@@ -107,7 +125,9 @@ export default defineComponent({
       tools,
       activeTool,
       handleToolClick,
-      handleMapClick
+      handleMapClick,
+      currentViewMode,
+      toggleViewMode
     };
   },
 });

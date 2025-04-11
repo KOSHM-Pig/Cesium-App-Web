@@ -2,7 +2,7 @@ import * as Cesium from 'cesium';
 import { ref } from 'vue';
 import { mapProviders } from './mapProviders';
 import { usePopup } from './popup';
-
+const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjZmEzYjBkZi01ODdhLTRiNjEtOGRiOC02Y2IxZTFkZjg5M2QiLCJpZCI6MjkxMjMzLCJpYXQiOjE3NDQzNjQ0MTd9.GvL1j2GL_7IzYj8899KJS9uCUlt74Zje7BP86jAB77Y' // 替换实际token
 const { success } = usePopup();
 
 export const useCesium = () => {
@@ -34,19 +34,29 @@ export const useCesium = () => {
       timeline: false,
       navigationHelpButton: false,
       navigationInstructionsInitiallyVisible: false,
-      creditContainer: document.createElement("div")
+      creditContainer: document.createElement("div"),
+      terrainProvider: Cesium.createWorldTerrain({
+        
+      })
     });
 
     // 隐藏版权信息
     const creditContainer = viewer.cesiumWidget.creditContainer as HTMLElement;
     creditContainer.style.display = 'none';
-    //去除双击放大事件
-    viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
-    //初始化地图
     resetMap()
-
+    // 初始化默认地图
+    loadMap('arcgis');
+    // 设置初始视角
+    // viewer.camera.flyTo({
+    //   destination: Cesium.Cartesian3.fromDegrees(116.4074, 39.9095, 100000),
+    //   orientation: {
+    //     heading: Cesium.Math.toRadians(0),
+    //     pitch: Cesium.Math.toRadians(-90)
+    //   }
+    // });
 
     // 地理信息显示 跟随鼠标移动事件
+    Cesium.Ion.defaultAccessToken = token; // 设置Cesium Ion的访问令牌
     const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
     handler.setInputAction((movement: Cesium.ScreenSpaceEventHandler.MotionEvent) => {
       const cartesian = viewer.scene.globe.pick(viewer.camera.getPickRay(movement.endPosition), viewer.scene);
@@ -58,7 +68,6 @@ export const useCesium = () => {
         longitude_num.value = long;
         latitude_num.value = lat;
         height_num.value = alt;
-
         
         // 添加东经西经、北纬南纬标识
         longitude.value = `${Math.abs(long).toFixed(4)}° ${long >= 0 ? 'E' : 'W'}`;
@@ -129,21 +138,21 @@ export const useCesium = () => {
     }
   };
 
-// 添加标记点
-const addPoint = ( position: Cesium.Cartesian3, color: Cesium.Color) => {
-  console.log('viewer:' + viewer);
-  if (viewer && viewer.entities) {
-      viewer.entities.add({
-          position: position,
-          point: {
-              pixelSize: 10,
-              color: color
-          }
-      });
-  }else{
-    console.log('viewer or viewer.entities is undefined');
-  }
-};
+  // 添加标记点
+  const addPoint = ( position: Cesium.Cartesian3, color: Cesium.Color) => {
+    console.log('viewer:' + viewer);
+    if (viewer && viewer.entities) {
+        viewer.entities.add({
+            position: position,
+            point: {
+                pixelSize: 10,
+                color: color
+            }
+        });
+    }else{
+      console.log('viewer or viewer.entities is undefined');
+    }
+  };
 
 
   // 根据经纬度添加点
@@ -151,6 +160,18 @@ const addPoint = ( position: Cesium.Cartesian3, color: Cesium.Color) => {
     const position = Cesium.Cartesian3.fromDegrees(lon, lat);
     console.log('Adding point at lat:', lat, 'lon:', lon);
     addPoint(position, color);
+  };
+
+  //切换3D/2D视图
+  const switchTo2D = () => {
+    if (viewer) {
+      viewer.scene.morphTo2D(1.0);
+    }
+  };
+  const switchTo3D = () => {
+    if (viewer) {
+      viewer.scene.morphTo3D(1.0);
+    }
   };
 
   return {
@@ -168,7 +189,9 @@ const addPoint = ( position: Cesium.Cartesian3, color: Cesium.Color) => {
     latitude_num,
     height_num,
     addPoint,
-    addPointByLatLon
+    addPointByLatLon,
+    switchTo2D,
+    switchTo3D
 
     
   };
