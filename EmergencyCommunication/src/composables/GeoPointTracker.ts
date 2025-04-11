@@ -1,4 +1,5 @@
 import * as Cesium from 'cesium';
+import type { GeoPosition } from './types'; 
 
 export class GeoPointTracker {
   private viewer: Cesium.Viewer;
