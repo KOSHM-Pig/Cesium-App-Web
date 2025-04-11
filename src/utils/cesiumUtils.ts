@@ -46,6 +46,10 @@ export const useCesium = () => {
     resetMap()
     // 初始化默认地图
     loadMap('arcgis');
+
+    viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK); 
+
+
     // 设置初始视角
     // viewer.camera.flyTo({
     //   destination: Cesium.Cartesian3.fromDegrees(116.4074, 39.9095, 100000),
@@ -67,8 +71,9 @@ export const useCesium = () => {
         const alt = viewer.camera.positionCartographic.height;
         longitude_num.value = long;
         latitude_num.value = lat;
-        height_num.value = alt;
+        height_num.value = Math.round(alt);
         
+    
         // 添加东经西经、北纬南纬标识
         longitude.value = `${Math.abs(long).toFixed(4)}° ${long >= 0 ? 'E' : 'W'}`;
         latitude.value = `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}`;
@@ -155,12 +160,19 @@ export const useCesium = () => {
   };
 
 
-  // 根据经纬度添加点
-  const addPointByLatLon = (lat: number, lon: number, color: Cesium.Color) => {
-    const position = Cesium.Cartesian3.fromDegrees(lon, lat);
-    console.log('Adding point at lat:', lat, 'lon:', lon);
+  // 根据经纬度和高度添加点
+  const addPointByLatLon = (lat: number, lon: number, height: number, color: Cesium.Color) => {
+    // 检查高度值是否合理
+    if (height < 0) {
+      console.error('Invalid height value. Height must be a positive number.');
+      return;
+    }
+    const position = Cesium.Cartesian3.fromDegrees(lon, lat, height);
+    console.log('Adding point at lat:', lat, 'lon:', lon, 'height:', height);
     addPoint(position, color);
+  
   };
+
 
   //切换3D/2D视图
   const switchTo2D = () => {
@@ -172,6 +184,19 @@ export const useCesium = () => {
     if (viewer) {
       viewer.scene.morphTo3D(1.0);
     }
+  };
+
+    // 获取当前经纬度对应脚下地面的海平面高度
+  const getCameraGroundElevation = (lat: number, lon: number) => {
+    if (typeof lon!== 'number' || typeof lat!== 'number') {
+      console.error('Invalid longitude or latitude values. Expected numbers.');
+      return null;
+    }
+    if (viewer) {
+      const cartographic = Cesium.Cartographic.fromDegrees(lon, lat);
+      return viewer.scene.globe.getHeight(cartographic);
+    }
+    return null;
   };
 
   return {
@@ -191,7 +216,8 @@ export const useCesium = () => {
     addPoint,
     addPointByLatLon,
     switchTo2D,
-    switchTo3D
+    switchTo3D,
+    getCameraGroundElevation
 
     
   };

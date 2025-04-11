@@ -68,7 +68,8 @@ export default defineComponent({
       addPoint,
       addPointByLatLon,
       switchTo2D,
-      switchTo3D
+      switchTo3D,
+      getCameraGroundElevation
     } = useCesium();
 
     // 定义激活的工具
@@ -88,11 +89,12 @@ export default defineComponent({
 
     const handleMapClick = () => {
       if (activeTool.value === '标点') {
-        console.log('经纬度数据: '+ longitude_num.value+ '   '+latitude_num.value+ '   ' +height_num.value);
+       
         if (longitude_num && latitude_num) {
-          addPointByLatLon(Number(latitude_num.value),Number(longitude_num.value), Cesium.Color.RED);
+          addPointByLatLon(Number(latitude_num.value),Number(longitude_num.value),Number (getCameraGroundElevation(Number(latitude_num.value),Number(longitude_num.value) )),Cesium.Color.RED);
         }
       }
+      
     };
 
     // 定义当前视图模式
