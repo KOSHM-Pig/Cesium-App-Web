@@ -23,7 +23,7 @@
     <div
       ref="cesiumContainer"
       class="cesium-container"
-      :style="{ cursor: activeTool === '标点' ? 'crosshair' : 'default' }"
+      :style="{ cursor: activeTool === '标点' || activeTool === '标线' ? 'crosshair' : 'default' }"
       @click="handleMapClick"
     >
       <!-- 新增放大缩小按钮组 -->
@@ -50,12 +50,14 @@
 import { defineComponent, onMounted, ref } from 'vue';
 import { useCesium } from './utils/cesiumUtils';
 import * as Cesium from 'cesium';
-import BAnnularMenu from './components/BAnnularMenu.vue'; // 引入 BAnnularMenu 组件
 import './App.css';
+import NotificationBox from './components/NotificationBox.vue';
+import { showNotification } from './utils/notification';
+
 
 export default defineComponent({
   components: {
-    BAnnularMenu
+    NotificationBox
   },
   setup() {
     const {
@@ -77,28 +79,85 @@ export default defineComponent({
       switchTo3D,
       getCameraGroundElevation,
       CameraZoomIn,
-      CameraZoomOut
+      CameraZoomOut,
+      addLineByLatLon,
+      clearCurrentLine,
+      completeCurrentLine
     } = useCesium();
 
-    // 定义激活的工具
     const activeTool = ref<string | null>(null);
-
-    // 定义工具栏工具
     const tools = [
       { name: '标点' },
       { name: '标线' },
       { name: '标面' }
     ];
+    const showAnnularMenu = ref(false);
+
+    const currentLinePoints = ref<Array<{ lat: number; lon: number; height: number }>>([]);
 
     const handleToolClick = (toolName: string) => {
-      // 切换激活的工具
-      activeTool.value = activeTool.value === toolName ? null : toolName;
+      if (toolName === '标线') {
+        if (activeTool.value === '标线') {
+          // 结束当前画线
+          if (currentLinePoints.value.length >= 2) {
+            completeCurrentLine();
+          }
+          currentLinePoints.value = [];
+          activeTool.value = null;
+        } else {
+          // 开始新的画线
+          activeTool.value = '标线';
+        }
+      } else {
+        // 切换到其他工具，结束当前画线
+        if (activeTool.value === '标线' && currentLinePoints.value.length >= 2) {
+          completeCurrentLine();
+        }
+        currentLinePoints.value = [];
+        activeTool.value = activeTool.value === toolName ? null : toolName;
+      }
     };
 
     const handleMapClick = () => {
-      if (activeTool.value === '标点') {
-        if (longitude_num && latitude_num) {
-          addPointByLatLon(Number(latitude_num.value), Number(longitude_num.value), Number(getCameraGroundElevation(Number(latitude_num.value), Number(longitude_num.value))), Cesium.Color.RED);
+      if (activeTool.value === '标线') {
+        if (longitude_num.value && latitude_num.value) {
+          const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
+          currentLinePoints.value.push({
+            lat: latitude_num.value,
+            lon: longitude_num.value,
+            height: groundHeight
+          });
+
+          // 清除当前正在绘制的线
+          clearCurrentLine();
+
+          if (currentLinePoints.value.length >= 2) {
+            // 重新绘制当前正在绘制的线
+            const entity = addLineByLatLon(currentLinePoints.value);
+            // 这里假设返回的实体赋值给 currentLineEntity，在 cesiumUtils 中处理
+          }
+        }
+      } else if (activeTool.value === '标点') {
+        if (longitude_num.value && latitude_num.value) {
+          addPointByLatLon(
+            latitude_num.value,
+            longitude_num.value,
+            getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0,
+            Cesium.Color.RED
+          );
+        }
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && activeTool.value === '标线' && currentLinePoints.value.length > 0) {
+        // 移除最后一个点
+        currentLinePoints.value.pop();
+        // 清除当前正在绘制的线
+        clearCurrentLine();
+        if (currentLinePoints.value.length >= 2) {
+          // 重新绘制线
+          addLineByLatLon(currentLinePoints.value);
         }
       }
     };
@@ -117,8 +176,12 @@ export default defineComponent({
       }
     };
 
+
+
+
     onMounted(() => {
-      initializeCesium();
+      const viewer = initializeCesium();
+      window.addEventListener('keydown', handleKeyDown);
     });
 
     return {
@@ -145,13 +208,16 @@ export default defineComponent({
 
 <style scoped>
 .cesium-container {
-  position: relative; /* 确保子元素的绝对定位相对于此容器 */
+  position: relative; 
+  width: 100%; 
+  height: 100vh; 
+  overflow: hidden; 
 }
 
 .zoom-buttons {
   position: absolute;
   bottom: 20px;
-  right: 20px;
+  left: 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;

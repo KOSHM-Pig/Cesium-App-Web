@@ -1,10 +1,13 @@
 import * as Cesium from 'cesium';
 import { ref } from 'vue';
 import { mapProviders } from './mapProviders';
-import { usePopup } from './popup';
-import Camera from 'cesium/Source/Scene/Camera';
+import NotificationBox from '../components/NotificationBox.vue';
+import { showNotification } from '../utils/notification';
+
+
+
 const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MWU0NGIwMS1hZWQyLTRlODktYmExMi04NzJjOGYyMTE5Y2EiLCJpZCI6MjkxMjMzLCJpYXQiOjE3NDQzNjQ4ODF9.huZ7JqhHqnuhQWzjP6qxJIS6LCUPpbArJqZd1JzTfUA' // 替换实际token
-const { success } = usePopup();
+
 Cesium.Ion.defaultAccessToken = token; // 设置Cesium Ion的访问令牌
 export const useCesium = () => {
   const cesiumContainer = ref<HTMLDivElement | null>(null);
@@ -17,6 +20,9 @@ export const useCesium = () => {
   const longitude_num = ref<number | null>(null);
   const latitude_num = ref<number | null>(null);
   const height_num = ref<number | null>(null);
+
+  // 新增 lineEntities 定义
+  const lineEntities = ref<Cesium.Entity[]>([]);
 
   // 初始化Cesium Viewer
   const initializeCesium = () => {
@@ -113,25 +119,9 @@ export const useCesium = () => {
   // 修改原clearImagery方法为resetMap（网页3/网页5核心方案）
   const resetMap = () => {
     if (viewer) {
-      // 1. 清除所有影像图层
       viewer.imageryLayers.removeAll();
 
-      // 2. 重新加载默认底图（网页1的初始化逻辑复用）
-      loadMap('arcgis');
-
-      // 3. 重置相机视角（网页5的视角控制方案）
-      // viewer.camera.flyTo({
-      //   destination: Cesium.Cartesian3.fromDegrees(116.4074, 39.9095, 100000),
-      //   orientation: {
-      //     heading: Cesium.Math.toRadians(0),
-      //     pitch: Cesium.Math.toRadians(-90)
-      //   }
-      // });
-
-      // 4. 同步下拉菜单状态（网页6的UI控制逻辑）
-      selectedMap.value = 'arcgis';
-
-      success('初始化完成');
+      showNotification(0, '地图初始化完成', 3000);
       console.log('Cesium Viewer has been reset to default state.');
     }
   };
@@ -140,7 +130,6 @@ export const useCesium = () => {
   const destroyCesium = () => {
     if (viewer) {
       viewer.destroy();
-      viewer = undefined;
     }
   };
 
@@ -320,6 +309,62 @@ export const useCesium = () => {
           }
       };
 
+  // 添加标线的函数
+  // 存储所有已完成的线实体
+  const completedLineEntities = ref<Cesium.Entity[]>([]);
+  // 存储当前正在绘制的线实体
+  let currentLineEntity: Cesium.Entity | null = null;
+
+  const addLine = (positions: Cesium.Cartesian3[]) => {
+    if (viewer && viewer.entities) {
+      // 清除之前的当前线实体
+      if (currentLineEntity) {
+        viewer.entities.remove(currentLineEntity);
+      }
+      const entity = viewer.entities.add({
+        polyline: {
+          positions: Cesium.Cartesian3.fromDegreesArrayHeights(positions.flatMap(pos => {
+            const cartographic = Cesium.Cartographic.fromCartesian(pos);
+            return [
+              Cesium.Math.toDegrees(cartographic.longitude),
+              Cesium.Math.toDegrees(cartographic.latitude),
+              cartographic.height
+            ];
+          })),
+          width: 5,
+          material: Cesium.Color.YELLOW
+        }
+      });
+      currentLineEntity = entity;
+      return entity;
+    }
+    return null;
+  };
+
+  // 根据经纬度和高度添加标线
+  const addLineByLatLon = (points: Array<{ lat: number; lon: number; height: number }>) => {
+    // 提前缓存转换结果
+    const positions = points.map(point =>
+      Cesium.Cartesian3.fromDegrees(point.lon, point.lat, point.height)
+    );
+    return addLine(positions);
+  };
+
+  const clearCurrentLine = () => {
+    if (currentLineEntity && viewer && viewer.entities) {
+      viewer.entities.remove(currentLineEntity);
+      currentLineEntity = null;
+    }
+  };
+
+  const completeCurrentLine = () => {
+    if (currentLineEntity) {
+      // 可以添加将当前线实体添加到已完成线列表的逻辑
+      currentLineEntity = null;
+      showNotification(0, '当前线已绘制完成', 3000);
+    }
+  };
+
   return {
     cesiumContainer,
     selectedMap,
@@ -340,9 +385,21 @@ export const useCesium = () => {
     switchTo3D,
     getCameraGroundElevation,
     CameraZoomIn,
-    CameraZoomOut
+    CameraZoomOut,
+    addLine,
+    addLineByLatLon,
+    clearCurrentLine,
+    completeCurrentLine
 
     
     
   };
 };
+
+
+
+
+
+
+
+

@@ -40,13 +40,12 @@
         name="center"
       />
     </div>
+    <button @click="$emit('close')">关闭菜单</button>
   </div>
 </template>
 
 <script lang="ts">
-import {
-  defineComponent, Ref, ref, onMounted, onBeforeUnmount
-} from 'vue';
+import { defineComponent } from 'vue';
 import { useCesium } from '../utils/cesiumUtils';
 
 export default defineComponent({
@@ -82,7 +81,8 @@ export default defineComponent({
       default: null
     }
   },
-  setup(props) {
+  emits: ['close'],
+  setup(props, { emit }) {
     const { addPointByLatLon } = useCesium();
 
     // menuList的父元素
@@ -98,19 +98,7 @@ export default defineComponent({
     onMounted(() => {
       // 根据当前的menuList初始化样式
       initStyle();
-      if (props.latitude && props.longitude) {
-        const lonStr = props.longitude.split('°')[0];
-        const latStr = props.latitude.split('°')[0];
-        const lon = parseFloat(lonStr);
-        const lat = parseFloat(latStr);
-        if (!isNaN(lon) && !isNaN(lat)) {
-          const isEast = props.longitude.includes('E');
-          const isNorth = props.latitude.includes('N');
-          const finalLon = isEast ? lon : -lon;
-          const finalLat = isNorth ? lat : -lat;
-          addPointByLatLon(finalLat, finalLon, Cesium.Color.RED); // 标记点
-        }
-      }
+      
     });
     onBeforeUnmount(() => {
       if (timer) {
@@ -178,14 +166,15 @@ export default defineComponent({
 .annular {
     width: 543px;
     height: 631px;
-    background: url(http://basex.uino.com/twinfile/1519595751883714562.png);
+    background: transparent;
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
+    position: absolute;
     font-size: 30px;
     color: #fff;
     letter-spacing: 4px;
+    z-index: 100;
 
     &_container {
         width: 480px;
@@ -288,7 +277,7 @@ export default defineComponent({
 
     &_content {
         position: absolute;
-        z-index: 4;
+        z-index: 100;
     }
 }
 </style>
