@@ -34,7 +34,7 @@
       <span></span>
       <!-- 添加 2D/3D 切换按钮 -->
       <button @click="toggleViewMode" class="status-item view-mode-button">
-        {{ currentViewMode === '2D' ? '切换到 3D' : '切换到 2D' }}
+        {{ currentViewMode === '2D' ? '切换到 2D' : '切换到 3D' }}
       </button>
     </div>
   </div>

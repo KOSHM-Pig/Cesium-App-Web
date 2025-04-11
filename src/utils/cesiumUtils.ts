@@ -2,9 +2,9 @@ import * as Cesium from 'cesium';
 import { ref } from 'vue';
 import { mapProviders } from './mapProviders';
 import { usePopup } from './popup';
-const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjZmEzYjBkZi01ODdhLTRiNjEtOGRiOC02Y2IxZTFkZjg5M2QiLCJpZCI6MjkxMjMzLCJpYXQiOjE3NDQzNjQ0MTd9.GvL1j2GL_7IzYj8899KJS9uCUlt74Zje7BP86jAB77Y' // 替换实际token
+const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MWU0NGIwMS1hZWQyLTRlODktYmExMi04NzJjOGYyMTE5Y2EiLCJpZCI6MjkxMjMzLCJpYXQiOjE3NDQzNjQ4ODF9.huZ7JqhHqnuhQWzjP6qxJIS6LCUPpbArJqZd1JzTfUA' // 替换实际token
 const { success } = usePopup();
-
+Cesium.Ion.defaultAccessToken = token; // 设置Cesium Ion的访问令牌
 export const useCesium = () => {
   const cesiumContainer = ref<HTMLDivElement | null>(null);
   let viewer: Cesium.Viewer;
@@ -56,7 +56,7 @@ export const useCesium = () => {
     // });
 
     // 地理信息显示 跟随鼠标移动事件
-    Cesium.Ion.defaultAccessToken = token; // 设置Cesium Ion的访问令牌
+    
     const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
     handler.setInputAction((movement: Cesium.ScreenSpaceEventHandler.MotionEvent) => {
       const cartesian = viewer.scene.globe.pick(viewer.camera.getPickRay(movement.endPosition), viewer.scene);
