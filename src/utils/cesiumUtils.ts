@@ -7,7 +7,7 @@ const { success } = usePopup();
 
 export const useCesium = () => {
   const cesiumContainer = ref<HTMLDivElement | null>(null);
-  let viewer: Cesium.Viewer | undefined;
+  let viewer: Cesium.Viewer;
   let currentImageryProvider: Cesium.ImageryProvider | undefined;
   const selectedMap = ref<'arcgis' | 'tencent' | 'local'>('arcgis');
   const longitude = ref<string | null>(null);
@@ -40,17 +40,11 @@ export const useCesium = () => {
     // 隐藏版权信息
     const creditContainer = viewer.cesiumWidget.creditContainer as HTMLElement;
     creditContainer.style.display = 'none';
+    //去除双击放大事件
+    viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+    //初始化地图
     resetMap()
-    // 初始化默认地图
-    loadMap('arcgis');
-    // 设置初始视角
-    // viewer.camera.flyTo({
-    //   destination: Cesium.Cartesian3.fromDegrees(116.4074, 39.9095, 100000),
-    //   orientation: {
-    //     heading: Cesium.Math.toRadians(0),
-    //     pitch: Cesium.Math.toRadians(-90)
-    //   }
-    // });
+
 
     // 地理信息显示 跟随鼠标移动事件
     const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
@@ -64,6 +58,7 @@ export const useCesium = () => {
         longitude_num.value = long;
         latitude_num.value = lat;
         height_num.value = alt;
+
         
         // 添加东经西经、北纬南纬标识
         longitude.value = `${Math.abs(long).toFixed(4)}° ${long >= 0 ? 'E' : 'W'}`;
@@ -76,11 +71,7 @@ export const useCesium = () => {
           height.value = `${alt.toFixed(2)} m`;
         }
       }
-      // 添加调试输出
-      console.log('鼠标移动更新状态栏数据:');
-      console.log('经度: ', longitude.value);
-      console.log('纬度: ', latitude.value);
-      console.log('高度: ', height.value);
+      
     }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
   };
 

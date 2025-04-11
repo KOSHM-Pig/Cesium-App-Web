@@ -25,7 +25,6 @@
       class="cesium-container"
       :style="{ cursor: activeTool === '标点' ? 'crosshair' : 'default' }"
       @click="handleMapClick"
-      @contextmenu.prevent="handleRightClick" 
     ></div>
     <!-- 状态栏 -->
     <div class="status-bar">
@@ -33,15 +32,7 @@
       <span class="status-item">{{ latitude || 'N/A' }}</span>
       <span class="status-item">{{ height || 'N/A' }}</span>
     </div>
-    <!-- 引入 BAnnularMenu 组件 -->
-    <BAnnularMenu
-      v-if="showMenu"
-      :menuList="menuList"
-      :initCurrent="initCurrent"
-      :sliderColor="sliderColor"
-      :latitude="latitude"
-      :longitude="longitude"
-    />
+
   </div>
 </template>
 
@@ -98,28 +89,7 @@ export default defineComponent({
       }
     };
 
-    const showMenu = ref(false); // 控制 BAnnularMenu 组件的显示与隐藏
-    const menuList = [
-      { name: '照明', index: 0 },
-      { name: '空调', index: 1 },
-      { name: '安防', index: 2 },
-      { name: '消防', index: 3 },
-      { name: '管线', index: 4 },
-      { name: '生产', index: 5 },
-      { name: '安全', index: 5 },
-      { name: '消防', index: 3 }
-    ];
-    const initCurrent = 1;
-    const sliderColor = '#FFD824';
 
-    const handleRightClick = () => {
-      if (longitude.value && latitude.value) {
-
-
-          showMenu.value = true; // 显示 BAnnularMenu 组件
-        
-      }
-    };
 
     onMounted(() => {
       initializeCesium();
@@ -137,12 +107,7 @@ export default defineComponent({
       tools,
       activeTool,
       handleToolClick,
-      handleMapClick,
-      showMenu,
-      menuList,
-      initCurrent,
-      sliderColor,
-      handleRightClick
+      handleMapClick
     };
   },
 });
