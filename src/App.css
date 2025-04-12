@@ -176,3 +176,34 @@
   border-radius: 4px;
 }
 
+/* 选中实体信息框样式 */
+.selected-entity-info {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  background-color: rgba(0, 0, 0, 0.7); /* 加深背景透明度 */
+  color: white;
+  padding: 10px;
+  border-radius: 4px; /* 减小圆角 */
+  z-index: 1000;
+  min-width: 150px; /* 减小最小宽度 */
+  font-size: 12px; /* 减小整体字体大小 */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* 添加阴影 */
+}
+
+/* 信息标签样式 */
+.info-label {
+  font-weight: bold;
+  color: #cccccc; /* 调整标签颜色 */
+}
+
+/* 信息值样式 */
+.info-value {
+  margin-left: 5px; /* 减小间距 */
+  color: #ffffff;
+}
+
+/* 段落样式 */
+.selected-entity-info p {
+  margin: 3px 0; /* 减小段落间距 */
+}

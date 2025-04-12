@@ -1,10 +1,17 @@
 <template>
-  <div v-if="isMenuOpen" id="radial-menu-container" :style="{ zIndex: 9999 }">
-    <!-- 修改关闭按钮结构 -->
+  <div 
+    v-if="isMenuOpen" 
+    id="radial-menu-container" 
+    :style="{ 
+      zIndex: 9999,
+      top: menuPosition?.y + 'px',
+      left: menuPosition?.x + 'px',
+      transform: 'translate(0, 0)'
+    }"
+  >
     <div id="close-button-wrapper" @click="closeMenu">
       <button id="close-button">×</button>
     </div>
-    <!-- 环形菜单项 -->
     <div id="menu-items">
       <div
         v-for="(item, index) in menuItems"
@@ -26,12 +33,37 @@ import { defineComponent, ref } from 'vue';
 import { showNotification } from '../utils/notification';
 
 export default defineComponent({
-  name: 'RadialMenu',
-  setup() {
-    const isMenuOpen = ref(false); // 初始状态设置为关闭
+  // 定义 props 接收 deleteEntity 和 isViewerInitialized
+  props: {
+    deleteEntity: {
+      type: Function,
+      required: true
+    },
+    isViewerInitialized: {
+      type: Boolean,
+      required: true
+    }
+  },
+  setup(props) {
+    const isMenuOpen = ref(false);
+    const menuPosition = ref<{ x: number; y: number } | null>(null);
+    const selectedEntityId = ref<string | null>(null);
 
     const menuItems = [
-      { label: '功能1', action: () => showNotification(0,'功能1执行')},
+      {
+        label: '删除',
+        action: () => {
+          if (!props.isViewerInitialized) {
+            showNotification(1, 'Cesium Viewer 未初始化，暂无法删除', 3000);
+            return;
+          }
+          if (selectedEntityId.value) {
+            props.deleteEntity(selectedEntityId.value);
+            isMenuOpen.value = false;
+            selectedEntityId.value = null;
+          }
+        },
+      },
       { label: '功能2', action: () => showNotification(0,'功能2执行')},
       { label: '功能3', action: () => showNotification(0,'功能3执行')},
       { label: '功能4', action: () => showNotification(0,'功能4执行')},
@@ -43,19 +75,20 @@ export default defineComponent({
 
     const closeMenu = () => {
       isMenuOpen.value = false;
+      selectedEntityId.value = null;
     };
 
-    // 新增打开菜单方法
-    const openMenu = () => {
+    const openMenu = (position: { x: number; y: number }, entityId: string) => {
+      menuPosition.value = position;
+      selectedEntityId.value = entityId;
       isMenuOpen.value = true;
     };
 
     const selectItem = (item) => {
       item.action();
-      closeMenu();
     };
 
-    const getItemAngle = (index) => {
+    const getItemAngle = (index: number) => {
       return (360 / menuItems.length) * index;
     };
 
@@ -63,9 +96,10 @@ export default defineComponent({
       isMenuOpen,
       menuItems,
       closeMenu,
-      openMenu, // 导出打开菜单方法
+      openMenu,
       selectItem,
-      getItemAngle,
+      menuPosition,
+      getItemAngle
     };
   },
 });

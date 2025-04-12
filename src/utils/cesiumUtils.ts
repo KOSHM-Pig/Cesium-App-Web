@@ -27,6 +27,16 @@ export const useCesium = () => {
 
   // 新增 lineEntities 定义
   const lineEntities = ref<Cesium.Entity[]>([]);
+  // 存储所有已完成的线实体
+  const completedLineEntities = ref<Cesium.Entity[]>([]);
+  // 存储当前正在绘制的线实体
+  let currentLineEntity: Cesium.Entity | null = null;
+  // 存储当前标面过程中的点
+  const currentPolygonPoints = ref<Array<{ lat: number; lon: number; height: number }>>([]);
+  // 存储当前绘制的面实体
+  let currentPolygonEntity: Cesium.Entity | null = null;
+  // 存储所有完成的面实体
+  const completedPolygonEntities = ref<Cesium.Entity[]>([]);
 
   // 初始化Cesium Viewer
   const initializeCesium = () => {
@@ -59,7 +69,7 @@ export const useCesium = () => {
     loadMap('arcgis');
 
     viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
-
+    isViewerInitialized.value = true;
     // 设置初始视角
     // viewer.camera.flyTo({
     //   destination: Cesium.Cartesian3.fromDegrees(116.4074, 39.9095, 100000),
@@ -123,6 +133,7 @@ export const useCesium = () => {
     if (viewer) {
       viewer.imageryLayers.removeAll();
       loadMap('arcgis');
+      console.log('viewer',viewer)
 
       showNotification(0, '地图初始化完成', 3000);
     }
@@ -134,6 +145,128 @@ export const useCesium = () => {
       viewer.destroy();
     }
   };
+
+  // 新增存储线标签实体和面标签实体的数组
+  const lineLabelEntities = ref<Cesium.Entity[]>([]);
+  const polygonLabelEntities = ref<Cesium.Entity[]>([]);
+  
+// 新增删除实体的方法
+const deleteEntity = (entityId: string | Cesium.Entity) => {
+  if (!isViewerInitialized.value || !viewer) {
+    console.error('viewer 未初始化，无法执行删除操作');
+    return;
+  }
+
+  let entity: Cesium.Entity | undefined;
+  if (typeof entityId === 'string') {
+    entity = viewer.entities.getById(entityId);
+  } else {
+    entity = entityId;
+  }
+
+  let entityLabel = '未知实体';
+  let mainEntity: Cesium.Entity | undefined = entity;
+
+  // 检查是否是线标签实体
+  const lineLabelIndex = lineLabelEntities.value.indexOf(entity as Cesium.Entity);
+  if (lineLabelIndex > -1) {
+    mainEntity = completedLineEntities.value[lineLabelIndex];
+    const lineLabelEntity = lineLabelEntities.value[lineLabelIndex];
+    if (lineLabelEntity && lineLabelEntity.label && lineLabelEntity.label.text) {
+      const textProperty = lineLabelEntity.label.text;
+      if (typeof textProperty.getValue === 'function') {
+        entityLabel = textProperty.getValue(Cesium.JulianDate.now());
+      }
+    }
+    // 删除线标签实体
+    viewer.entities.remove(lineLabelEntity);
+    lineLabelEntities.value.splice(lineLabelIndex, 1);
+    // 删除线实体
+    if (mainEntity) {
+      viewer.entities.remove(mainEntity);
+      completedLineEntities.value.splice(lineLabelIndex, 1);
+      lineCounter.value--;
+    }
+    showNotification(0, `已成功删除实体: ${entityLabel}`, 3000);
+    return;
+  }
+
+  // 检查是否是面标签实体
+  const polygonLabelIndex = polygonLabelEntities.value.indexOf(entity as Cesium.Entity);
+  if (polygonLabelIndex > -1) {
+    mainEntity = completedPolygonEntities.value[polygonLabelIndex];
+    const polygonLabelEntity = polygonLabelEntities.value[polygonLabelIndex];
+    if (polygonLabelEntity && polygonLabelEntity.label && polygonLabelEntity.label.text) {
+      const textProperty = polygonLabelEntity.label.text;
+      if (typeof textProperty.getValue === 'function') {
+        entityLabel = textProperty.getValue(Cesium.JulianDate.now());
+      }
+    }
+    // 删除面标签实体
+    viewer.entities.remove(polygonLabelEntity);
+    polygonLabelEntities.value.splice(polygonLabelIndex, 1);
+    // 删除面实体
+    if (mainEntity) {
+      viewer.entities.remove(mainEntity);
+      completedPolygonEntities.value.splice(polygonLabelIndex, 1);
+      polygonCounter.value--;
+    }
+    showNotification(0, `已成功删除实体: ${entityLabel}`, 3000);
+    return;
+  }
+
+  if (mainEntity) {
+    // 先尝试获取普通实体的标签
+    if (mainEntity.label && mainEntity.label.text) {
+      const textProperty = mainEntity.label.text;
+      if (typeof textProperty.getValue === 'function') {
+        entityLabel = textProperty.getValue(Cesium.JulianDate.now());
+      }
+    }
+
+    // 处理线实体
+    const lineIndex = completedLineEntities.value.indexOf(mainEntity);
+    if (lineIndex > -1) {
+      const lineLabelEntity = lineLabelEntities.value[lineIndex];
+      if (lineLabelEntity && lineLabelEntity.label && lineLabelEntity.label.text) {
+        const lineTextProperty = lineLabelEntity.label.text;
+        if (typeof lineTextProperty.getValue === 'function') {
+          entityLabel = lineTextProperty.getValue(Cesium.JulianDate.now());
+        }
+      }
+      if (lineLabelEntity) {
+        viewer.entities.remove(lineLabelEntity);
+        lineLabelEntities.value.splice(lineIndex, 1);
+      }
+      completedLineEntities.value.splice(lineIndex, 1);
+      lineCounter.value--;
+    }
+
+    // 处理面实体
+    const polygonIndex = completedPolygonEntities.value.indexOf(mainEntity);
+    if (polygonIndex > -1) {
+      const polygonLabelEntity = polygonLabelEntities.value[polygonIndex];
+      if (polygonLabelEntity && polygonLabelEntity.label && polygonLabelEntity.label.text) {
+        const polygonTextProperty = polygonLabelEntity.label.text;
+        if (typeof polygonTextProperty.getValue === 'function') {
+          entityLabel = polygonTextProperty.getValue(Cesium.JulianDate.now());
+        }
+      }
+      if (polygonLabelEntity) {
+        viewer.entities.remove(polygonLabelEntity);
+        polygonLabelEntities.value.splice(polygonIndex, 1);
+      }
+      completedPolygonEntities.value.splice(polygonIndex, 1);
+      polygonCounter.value--;
+    }
+
+    // 删除实体
+    viewer.entities.remove(mainEntity);
+    showNotification(0, `已成功删除实体: ${entityLabel}`, 3000);
+  } else {
+    showNotification(1, '未找到要删除的实体', 3000);
+  }
+};
 
   // 添加标记点
   const addPoint = (position: Cesium.Cartesian3, color: Cesium.Color) => {
@@ -326,12 +459,6 @@ export const useCesium = () => {
   };
 
   // 添加标线的函数
-  // 存储所有已完成的线实体
-  const completedLineEntities = ref<Cesium.Entity[]>([]);
-  // 存储当前正在绘制的线实体
-  let currentLineEntity: Cesium.Entity | null = null;
-
-  // 修改 addLine 方法，移除生成标签的逻辑
   const addLine = (positions: Cesium.Cartesian3[], color: Cesium.Color) => {
     if (viewer && viewer.entities) {
       // 清除之前的当前线实体
@@ -367,6 +494,7 @@ export const useCesium = () => {
     return addLine(positions, color);
   };
 
+  //添加面
   const addPolygon = (points: Array<{ lat: number; lon: number; height: number }>, color: Cesium.Color) => {
     if (viewer && viewer.entities && points.length >= 3) {
       const positions = points.map(point =>
@@ -383,68 +511,70 @@ export const useCesium = () => {
     return null;
   };
 
-  // 修改 completeCurrentLine 方法，添加生成标签的逻辑
+// 修改 completeCurrentLine 方法，保存线标签实体
   const completeCurrentLine = () => {
-    if (currentLineEntity) {
-      lineCounter.value++;
-      const positions = currentLineEntity.polyline?.positions.getValue(Cesium.JulianDate.now());
-      if (positions && positions.length > 0) {
-        const labelPosition = positions[Math.floor(positions.length / 2)];
-        viewer.entities.add({
-          position: labelPosition,
-          point: {
-            pixelSize: 0, // 透明点
-            color: Cesium.Color.TRANSPARENT
-          },
-          label: {
-            text: `线${lineCounter.value}`,
-            font: '14px sans-serif',
-            fillColor: Cesium.Color.WHITE,
-            outlineColor: Cesium.Color.BLACK,
-            outlineWidth: 2,
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-            pixelOffset: new Cesium.Cartesian2(0, -10)
-          }
-        });
-      }
-      completedLineEntities.value.push(currentLineEntity);
-      currentLineEntity = null;
-      showNotification(0, '当前线已绘制完成', 3000);
+  if (currentLineEntity) {
+    lineCounter.value++;
+    const positions = currentLineEntity.polyline?.positions.getValue(Cesium.JulianDate.now());
+    if (positions && positions.length > 0) {
+      const labelPosition = positions[Math.floor(positions.length / 2)];
+      const labelEntity = viewer.entities.add({
+        position: labelPosition,
+        point: {
+          pixelSize: 0, // 透明点
+          color: Cesium.Color.TRANSPARENT
+        },
+        label: {
+          text: `线${lineCounter.value}`,
+          font: '14px sans-serif',
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -10)
+        }
+      });
+      lineLabelEntities.value.push(labelEntity);
     }
-  };
+    completedLineEntities.value.push(currentLineEntity);
+    currentLineEntity = null;
+    showNotification(0, '当前线已绘制完成', 3000);
+  }
+};
 
-  // 修改 completeCurrentPolygon 方法，添加生成标签的逻辑
-  const completeCurrentPolygon = () => {
-    if (currentPolygonEntity) {
-      polygonCounter.value++;
-      const positions = currentPolygonEntity.polygon?.hierarchy.getValue(Cesium.JulianDate.now()).positions;
-      if (positions && positions.length > 0) {
-        const center = Cesium.BoundingSphere.fromPoints(positions).center;
-        viewer.entities.add({
-          position: center,
-          point: {
-            pixelSize: 0, // 透明点
-            color: Cesium.Color.TRANSPARENT
-          },
-          label: {
-            text: `面${polygonCounter.value}`,
-            font: '14px sans-serif',
-            fillColor: Cesium.Color.WHITE,
-            outlineColor: Cesium.Color.BLACK,
-            outlineWidth: 2,
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-            pixelOffset: new Cesium.Cartesian2(0, -10)
-          }
-        });
-      }
-      completedPolygonEntities.value.push(currentPolygonEntity);
-      currentPolygonEntity = null;
-      currentPolygonPoints.value = [];
-      showNotification(0, '当前面绘制完成', 3000);
+// 修改 completeCurrentPolygon 方法，保存面标签实体
+const completeCurrentPolygon = () => {
+  if (currentPolygonEntity) {
+    polygonCounter.value++;
+    const positions = currentPolygonEntity.polygon?.hierarchy.getValue(Cesium.JulianDate.now()).positions;
+    if (positions && positions.length > 0) {
+      const center = Cesium.BoundingSphere.fromPoints(positions).center;
+      const labelEntity = viewer.entities.add({
+        position: center,
+        point: {
+          pixelSize: 0, // 透明点
+          color: Cesium.Color.TRANSPARENT
+        },
+        label: {
+          text: `面${polygonCounter.value}`,
+          font: '14px sans-serif',
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -10)
+        }
+      });
+      polygonLabelEntities.value.push(labelEntity);
     }
-  };
+    completedPolygonEntities.value.push(currentPolygonEntity);
+    currentPolygonEntity = null;
+    currentPolygonPoints.value = [];
+    showNotification(0, '当前面绘制完成', 3000);
+  }
+};
 
   // 更新当前面的方法
   const updateCurrentPolygon = (color: Cesium.Color) => {
@@ -461,19 +591,6 @@ export const useCesium = () => {
     }
   };
 
-
-
-  // 存储当前标面过程中的点
-  const currentPolygonPoints = ref<Array<{ lat: number; lon: number; height: number }>>([]);
-  // 存储当前绘制的面实体
-  let currentPolygonEntity: Cesium.Entity | null = null;
-  // 存储所有完成的面实体
-  const completedPolygonEntities = ref<Cesium.Entity[]>([]);
-
-
-
-
-
   // 清除所有完成的面
   const clearAllPolygons = () => {
     completedPolygonEntities.value.forEach((entity) => {
@@ -483,6 +600,10 @@ export const useCesium = () => {
     });
     completedPolygonEntities.value = [];
   };
+
+  const isViewerInitialized = ref(false);
+
+
 
   // 新增检测鼠标是否在实体上的方法，添加一个可选参数来控制检测范围
   const checkMouseOverEntity = (event: MouseEvent, pickRadius: number = 5): string | null => {
@@ -502,9 +623,10 @@ export const useCesium = () => {
         }
       }
     }
-
     return null;
   };
+
+
 
   return {
     cesiumContainer,
@@ -536,7 +658,9 @@ export const useCesium = () => {
     updateCurrentPolygon,
     addPolygon,
     currentPolygonPoints,
-    checkMouseOverEntity // 导出新方法
+    checkMouseOverEntity,
+    deleteEntity, // 导出删除实体的方法
+    isViewerInitialized
   };
 };
 

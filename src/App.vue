@@ -1,7 +1,27 @@
 <template>
   <div class="map-container">
-    <!-- 引用 RadialMenu 组件并绑定 ref -->
-    <RadialMenu ref="radialMenuRef" />
+    <!-- 传递 deleteEntity 和 isViewerInitialized 到 RadialMenu 组件 -->
+     <!-- 选中实体信息框 -->
+        <!-- 选中实体信息框 -->
+        <div class="selected-entity-info">
+      <p>
+        <span class="info-label">标签: </span>
+        <span class="info-value">示例标签</span>
+      </p>
+      <p>
+        <span class="info-label">颜色: </span>
+        <span class="info-value">示例颜色</span>
+      </p>
+      <p>
+        <span class="info-label">类型: </span>
+        <span class="info-value">示例类型</span>
+      </p>
+    </div>
+    <RadialMenu 
+      ref="radialMenuRef"
+      :deleteEntity="deleteEntity" 
+      :isViewerInitialized="isViewerInitialized"
+    />
     <!-- 工具栏 -->
     <div class="toolbar">
       <!-- 颜色选择器 -->
@@ -104,7 +124,9 @@ export default defineComponent({
       updateCurrentPolygon,
       addPolygon,
       currentPolygonPoints,
-      checkMouseOverEntity // 获取检测鼠标是否在实体上的方法
+      checkMouseOverEntity,
+      deleteEntity,
+      isViewerInitialized // 从 useCesium 中获取 isViewerInitialized
     } = useCesium();
 
     const activeTool = ref<string | null>(null);
@@ -115,11 +137,15 @@ export default defineComponent({
     ];
     const showAnnularMenu = ref(false);
     const currentLinePoints = ref<Array<{ lat: number; lon: number; height: number }>>([]);
+      const selectedEntityId = ref<string | null>(null); // 记录当前选中的实体 ID
     const selectedColor = ref('#ff0000'); // 默认红色
     const isOverEntity = ref(false); // 用于跟踪鼠标是否在实体上
 
     // 引用 RadialMenu 组件实例
     const radialMenuRef = ref<InstanceType<typeof RadialMenu> | null>(null);
+
+    // 定义菜单位置
+    const menuPosition = ref<{ x: number; y: number } | null>(null);
 
     // 处理颜色变化
     const handleColorChange = () => {
@@ -128,6 +154,7 @@ export default defineComponent({
     };
 
     const handleToolClick = (toolName: string) => {
+
       if (toolName === '标线') {
         if (activeTool.value === '标线') {
           // 结束当前画线
@@ -166,16 +193,16 @@ export default defineComponent({
     };
 
     const handleMapClick = (event: MouseEvent) => {
+      
       // 可以调整这个值来改变检测范围
       const pickRadius = 10; 
       const entityId = checkMouseOverEntity(event, pickRadius);
       if (entityId) {
-        // 若点击到实体，打开 RadialMenu 菜单
+        const position = { x: event.clientX, y: event.clientY };
         if (radialMenuRef.value) {
-          radialMenuRef.value.openMenu();
+          radialMenuRef.value.openMenu(position, entityId);
         }
       } else {
-        // 若点击别处，关闭 RadialMenu 菜单
         if (radialMenuRef.value) {
           radialMenuRef.value.closeMenu();
         }
@@ -303,7 +330,11 @@ export default defineComponent({
       handleColorChange,
       isOverEntity,
       handleMouseMove,
-      radialMenuRef // 导出 radialMenuRef
+      radialMenuRef, // 导出 radialMenuRef
+      menuPosition,
+      deleteEntity,
+      selectedEntityId,
+      isViewerInitialized // 导出 isViewerInitialized
     };
   },
 });
