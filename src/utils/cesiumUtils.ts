@@ -120,6 +120,7 @@ export const useCesium = () => {
   const resetMap = () => {
     if (viewer) {
       viewer.imageryLayers.removeAll();
+      loadMap('arcgis');
 
       showNotification(0, '地图初始化完成', 3000);
     }
@@ -425,6 +426,28 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
     completedPolygonEntities.value = [];
   };
 
+  // 新增检测鼠标是否在实体上的方法，添加一个可选参数来控制检测范围
+  const checkMouseOverEntity = (event: MouseEvent, pickRadius: number = 5): string | null => {
+    if (!cesiumContainer.value || !viewer) {
+      return null;
+    }
+
+    const scene = viewer.scene;
+    const position = new Cesium.Cartesian2(event.clientX, event.clientY);
+    // 使用 drillPick 方法在指定半径内进行拾取
+    const pickedObjects = scene.drillPick(position, pickRadius, pickRadius);
+
+    if (pickedObjects && pickedObjects.length > 0) {
+      for (const pickedObject of pickedObjects) {
+        if (Cesium.defined(pickedObject) && pickedObject.id) {
+          return pickedObject.id;
+        }
+      }
+    }
+
+    return null;
+  };
+
   return {
     cesiumContainer,
     selectedMap,
@@ -454,13 +477,10 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
     clearAllPolygons,
     updateCurrentPolygon,
     addPolygon,
-    currentPolygonPoints // 添加这一行
+    currentPolygonPoints,
+    checkMouseOverEntity // 导出新方法
   };
-
-    
-    
-  };
-
+};
 
 
 

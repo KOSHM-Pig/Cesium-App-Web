@@ -17,9 +17,7 @@
         @click="handleToolClick(tool.name)"
       >
         <span>{{ tool.name }}</span>
-        
       </div>
-      
     </div>
     <!-- 地图控制部分 -->
     <div class="map-control">
@@ -34,8 +32,11 @@
     <div
       ref="cesiumContainer"
       class="cesium-container"
-      :style="{ cursor: activeTool === '标点' || activeTool === '标线' || activeTool === '标面' ? 'crosshair' : 'default' }"
+      :style="{
+        cursor: isOverEntity ? 'pointer' : (activeTool === '标点' || activeTool === '标线' || activeTool === '标面' ? 'crosshair' : 'default')
+      }"
       @click="handleMapClick"
+      @mousemove="handleMouseMove"
     >
       <!-- 放大缩小按钮组 -->
       <div class="zoom-buttons">
@@ -93,12 +94,12 @@ export default defineComponent({
       addLineByLatLon,
       clearCurrentLine,
       completeCurrentLine,
-      // 引入标面相关方法
       completeCurrentPolygon,
       clearAllPolygons,
       updateCurrentPolygon,
       addPolygon,
-      currentPolygonPoints // 引入 currentPolygonPoints
+      currentPolygonPoints,
+      checkMouseOverEntity // 获取检测鼠标是否在实体上的方法
     } = useCesium();
 
     const activeTool = ref<string | null>(null);
@@ -109,8 +110,8 @@ export default defineComponent({
     ];
     const showAnnularMenu = ref(false);
     const currentLinePoints = ref<Array<{ lat: number; lon: number; height: number }>>([]);
-     // 颜色选择器相关状态
-     const selectedColor = ref('#ff0000'); // 默认红色
+    const selectedColor = ref('#ff0000'); // 默认红色
+    const isOverEntity = ref(false); // 用于跟踪鼠标是否在实体上
 
     // 处理颜色变化
     const handleColorChange = () => {
@@ -213,14 +214,14 @@ export default defineComponent({
         } else if (activeTool.value === '标面' && currentPolygonPoints.value.length > 0) {
           if (currentPolygonPoints.value.length < 4) {
             // 点数少于 3 个，直接清空所有标记点
-            console.log('清除所有标记点');
-            console.log(currentPolygonPoints.value);
             currentPolygonPoints.value = [];
             updateCurrentPolygon(Cesium.Color.fromCssColorString(selectedColor.value));
+            showNotification(1,'标面点数不足，请重新绘制');
           } else {
             // 移除最后一个标面的点
             currentPolygonPoints.value.pop();
             updateCurrentPolygon(Cesium.Color.fromCssColorString(selectedColor.value));
+            showNotification(2,'已删除上一个点');
           }
         }
       }
@@ -240,8 +241,12 @@ export default defineComponent({
       }
     };
 
-
-
+    const handleMouseMove = (event: MouseEvent) => {
+      // 可以调整这个值来改变检测范围
+      const pickRadius = 10; 
+      const entityId = checkMouseOverEntity(event, pickRadius);
+      isOverEntity.value = !!entityId;
+    };
 
     onMounted(() => {
       initializeCesium();
@@ -270,7 +275,9 @@ export default defineComponent({
       CameraZoomIn,
       CameraZoomOut,
       selectedColor,
-      handleColorChange
+      handleColorChange,
+      isOverEntity,
+      handleMouseMove
     };
   },
 });
