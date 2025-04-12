@@ -1,22 +1,26 @@
 <template>
   <div class="map-container">
-    <!-- 传递 deleteEntity 和 isViewerInitialized 到 RadialMenu 组件 -->
-     <!-- 选中实体信息框 -->
-        <!-- 选中实体信息框 -->
-        <div class="selected-entity-info">
+    <!-- 选中实体信息框，根据 isOverEntity 控制显示隐藏，使用 v-show 结合 CSS 过渡 -->
+    <div v-show="isOverEntity" class="selected-entity-info fade">
       <p>
         <span class="info-label">标签: </span>
-        <span class="info-value">示例标签</span>
+        <span class="info-value">{{ entityInfo.label }}</span>
       </p>
       <p>
         <span class="info-label">颜色: </span>
-        <span class="info-value">示例颜色</span>
+        <span class="info-value">{{ entityInfo.color }}</span>
+        <!-- 新增显示颜色的小方块 -->
+        <span 
+          class="color-block" 
+          :style="{ backgroundColor: entityInfo.color === '未知颜色' ? '#ccc' : entityInfo.color }"
+        ></span>
       </p>
       <p>
         <span class="info-label">类型: </span>
-        <span class="info-value">示例类型</span>
+        <span class="info-value">{{ entityInfo.type }}</span>
       </p>
     </div>
+    <!-- 其他代码保持不变 -->
     <RadialMenu 
       ref="radialMenuRef"
       :deleteEntity="deleteEntity" 
@@ -126,7 +130,8 @@ export default defineComponent({
       currentPolygonPoints,
       checkMouseOverEntity,
       deleteEntity,
-      isViewerInitialized // 从 useCesium 中获取 isViewerInitialized
+      isViewerInitialized,
+      getSelectedEntityInfo // 新增获取实体信息方法
     } = useCesium();
 
     const activeTool = ref<string | null>(null);
@@ -137,9 +142,14 @@ export default defineComponent({
     ];
     const showAnnularMenu = ref(false);
     const currentLinePoints = ref<Array<{ lat: number; lon: number; height: number }>>([]);
-      const selectedEntityId = ref<string | null>(null); // 记录当前选中的实体 ID
+    const selectedEntityId = ref<string | null>(null); // 记录当前选中的实体 ID
     const selectedColor = ref('#ff0000'); // 默认红色
     const isOverEntity = ref(false); // 用于跟踪鼠标是否在实体上
+    const entityInfo = ref({
+      label: '未知标签',
+      color: '未知颜色',
+      type: '未知类型'
+    }); // 新增实体信息
 
     // 引用 RadialMenu 组件实例
     const radialMenuRef = ref<InstanceType<typeof RadialMenu> | null>(null);
@@ -154,7 +164,6 @@ export default defineComponent({
     };
 
     const handleToolClick = (toolName: string) => {
-
       if (toolName === '标线') {
         if (activeTool.value === '标线') {
           // 结束当前画线
@@ -193,7 +202,6 @@ export default defineComponent({
     };
 
     const handleMapClick = (event: MouseEvent) => {
-      
       // 可以调整这个值来改变检测范围
       const pickRadius = 10; 
       const entityId = checkMouseOverEntity(event, pickRadius);
@@ -296,9 +304,19 @@ export default defineComponent({
       const pickRadius = 10; 
       const entityId = checkMouseOverEntity(event, pickRadius);
       isOverEntity.value = !!entityId;
+
+      if (entityId) {
+        // 获取实体信息并更新
+        entityInfo.value = getSelectedEntityInfo(Object(entityId));
+      } else {
+        // 鼠标不在实体上，显示未知信息
+        entityInfo.value = {
+          label: '未知标签',
+          color: '未知颜色',
+          type: '未知类型'
+        };
+      }
     };
-
-
 
     onMounted(() => {
       initializeCesium();
@@ -330,15 +348,13 @@ export default defineComponent({
       handleColorChange,
       isOverEntity,
       handleMouseMove,
-      radialMenuRef, // 导出 radialMenuRef
+      radialMenuRef,
       menuPosition,
       deleteEntity,
       selectedEntityId,
-      isViewerInitialized // 导出 isViewerInitialized
+      isViewerInitialized,
+      entityInfo // 导出实体信息
     };
   },
 });
 </script>
-
-
-

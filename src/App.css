@@ -181,15 +181,23 @@
   position: absolute;
   top: 15px;
   left: 15px;
-  background-color: rgba(0, 0, 0, 0.7); /* 加深背景透明度 */
+  background-color: rgba(0, 0, 0, 0.7);
   color: white;
   padding: 10px;
-  border-radius: 4px; /* 减小圆角 */
+  border-radius: 4px;
   z-index: 1000;
-  min-width: 150px; /* 减小最小宽度 */
-  font-size: 12px; /* 减小整体字体大小 */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* 添加阴影 */
+  min-width: 188px; 
+  font-size: 12px; 
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); 
+  opacity: 0; /* 初始透明度为 0 */
+  transition: opacity 1s ease; /* 添加透明度过渡动画 */
 }
+
+/* 显示时的样式 */
+.selected-entity-info.fade {
+  opacity: 1;
+}
+
 
 /* 信息标签样式 */
 .info-label {
@@ -206,4 +214,15 @@
 /* 段落样式 */
 .selected-entity-info p {
   margin: 3px 0; /* 减小段落间距 */
+}
+
+.color-block {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 8px;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  transform: translateY(-1px); /* 调整位置，使其与文字垂直居中 */
+  vertical-align: middle;
 }
