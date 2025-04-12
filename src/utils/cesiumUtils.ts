@@ -94,8 +94,8 @@ export const useCesium = () => {
         height_num.value = Math.round(alt);
 
         // 添加东经西经、北纬南纬标识
-        longitude.value = `${Math.abs(long).toFixed(4)}° ${long >= 0 ? 'E' : 'W'}`;
-        latitude.value = `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}`;
+        longitude.value = `${Math.abs(long).toFixed(7)}° ${long >= 0 ? 'E' : 'W'}`;
+        latitude.value = `${Math.abs(lat).toFixed(7)}° ${lat >= 0 ? 'N' : 'S'}`;
 
         // 根据高度切换单位
         if (alt >= 10000) {
@@ -628,45 +628,114 @@ const completeCurrentPolygon = () => {
 
 // 获取实体类型
 const getEntityType = (entity: Cesium.Entity | undefined) => {
-  console.log('开始执行 getEntityType 方法，传入的实体:', entity);
+  
   if (!entity) {
-    console.log('传入的实体为空，返回未知类型');
+    
     return '未知类型';
   }
   if (entity.point) {
-    console.log('检测到实体有 point 属性，判定类型为点');
+    
     return '点';
   } else if (entity.polyline) {
-    console.log('检测到实体有 polyline 属性，判定类型为线');
+    
     return '线';
   } else if (entity.polygon) {
-    console.log('检测到实体有 polygon 属性，判定类型为面');
+    
     return '面';
   }
-  console.log('未检测到 point、polyline 或 polygon 属性，返回未知类型');
+  
   return '未知类型';
+};
+
+
+// 改变点的颜色
+const changePointColor = (entity: Cesium.Entity, newColor: Cesium.Color) => {
+  if (entity.point) {
+    entity.point.color = new Cesium.ConstantProperty(newColor);
+  }
+};
+
+// 改变线的颜色
+const changeLineColor = (entity: Cesium.Entity, newColor: Cesium.Color) => {
+  if (entity.polyline) {
+    entity.polyline.material = new Cesium.ColorMaterialProperty(newColor);
+  }
+};
+
+// 改变面的颜色
+const changePolygonColor = (entity: Cesium.Entity, newColor: Cesium.Color) => {
+  if (entity.polygon) {
+    entity.polygon.material = new Cesium.ColorMaterialProperty(newColor.withAlpha(0.5));
+  }
+};
+
+// 根据实体类型改变颜色
+const changeEntityColor = (entityId: string | Cesium.Entity, newColor: Cesium.Color) => {
+  let entity: Cesium.Entity | undefined;
+  if (typeof entityId === 'string') {
+    if (!viewer) {
+      return;
+    }
+    entity = viewer.entities.getById(entityId);
+  } else {
+    entity = entityId;
+  }
+
+  if (!entity) {
+    return;
+  }
+
+  let mainEntity: Cesium.Entity = entity;
+
+  // 检查是否是线标签实体
+  const lineLabelIndex = lineLabelEntities.value.indexOf(entity);
+  if (lineLabelIndex > -1) {
+    mainEntity = completedLineEntities.value[lineLabelIndex];
+  }
+
+  // 检查是否是面标签实体
+  const polygonLabelIndex = polygonLabelEntities.value.indexOf(entity);
+  if (polygonLabelIndex > -1) {
+    mainEntity = completedPolygonEntities.value[polygonLabelIndex];
+  }
+
+  const entityType = getEntityType(mainEntity);
+
+  switch (entityType) {
+    case '点':
+      changePointColor(mainEntity, newColor);
+      break;
+    case '线':
+      changeLineColor(mainEntity, newColor);
+      break;
+    case '面':
+      changePolygonColor(mainEntity, newColor);
+      break;
+    default:
+      break;
+  }
 };
 
 // 获取实体标签
 const getEntityLabel = (entity: Cesium.Entity | undefined) => {
-  console.log('开始执行 getEntityLabel 方法，传入的实体:', entity);
+  
   if (!entity) {
-    console.log('传入的实体为空，返回未知标签');
+    
     return '未知标签';
   }
 
   // 先尝试从当前实体获取标签
-  console.log('尝试从当前实体获取标签');
+  
   if (entity.label && entity.label.text) {
     const textProperty = entity.label.text;
-    console.log('当前实体存在标签文本属性，尝试获取值');
+    
     if (typeof textProperty.getValue === 'function') {
       const labelValue = textProperty.getValue(Cesium.JulianDate.now());
-      console.log('成功从当前实体获取标签:', labelValue);
+      
       return labelValue;
     }
   } else {
-    console.log('当前实体不存在标签文本属性');
+    
   }
 
   const entityType = getEntityType(entity);
@@ -683,7 +752,7 @@ const getEntityLabel = (entity: Cesium.Entity | undefined) => {
       completedEntities = completedPolygonEntities.value;
       break;
     default:
-      console.log('实体类型不是线或面，无法从对应标签实体获取标签');
+      
       return '未知标签';
   }
 
@@ -691,22 +760,22 @@ const getEntityLabel = (entity: Cesium.Entity | undefined) => {
   const index = completedEntities.indexOf(entity);
   if (index > -1) {
     const labelEntity = labelEntities[index];
-    console.log(`找到 ${entityType} 对应的标签实体，尝试从标签实体获取标签`);
+    
     if (labelEntity && labelEntity.label && labelEntity.label.text) {
       const textProperty = labelEntity.label.text;
       if (typeof textProperty.getValue === 'function') {
         const labelValue = textProperty.getValue(Cesium.JulianDate.now());
-        console.log(`成功从 ${entityType} 对应的标签实体获取标签:`, labelValue);
+        
         return labelValue;
       }
     } else {
-      console.log(`${entityType} 对应的标签实体不存在或无有效标签文本属性`);
+      
     }
   } else {
-    console.log(`未找到 ${entityType} 对应的标签实体`);
+
   }
 
-  console.log('未能获取到有效标签，返回未知标签');
+  
   return '未知标签';
 };
 
@@ -779,7 +848,7 @@ const getEntityColor = (entity: Cesium.Entity | undefined) => {
       }
     }
   } catch (error) {
-    console.error('获取实体颜色时出错:', error);
+    showNotification(1, '获取实体颜色时发生错误', 3000);
   }
   return '未知颜色';
 };
@@ -788,7 +857,7 @@ const getEntityColor = (entity: Cesium.Entity | undefined) => {
 
 // 获取鼠标选中实体的标签、颜色和类型信息的方法
 const getSelectedEntityInfo = (entityId: string | Cesium.Entity) => {
-  console.log('开始执行 getSelectedEntityInfo 方法，传入的 entityId:', entityId);
+ 
 
   let entity: Cesium.Entity | undefined;
 
@@ -796,11 +865,8 @@ const getSelectedEntityInfo = (entityId: string | Cesium.Entity) => {
     // 确保 entityId 是字符串类型
     const validEntityId = typeof entityId === 'string' || typeof entityId === 'number' ? String(entityId) : null;
     if (validEntityId) {
-      console.log('尝试通过 entityId 获取实体，entityId:', validEntityId);
-      console.log('viewer:', viewer);
       entity = viewer?.entities.getById(validEntityId);
     } else {
-      console.log('传入的 entityId 类型无效，无法获取实体');
     }
   } else {
     entity = entityId;
@@ -824,9 +890,6 @@ const getSelectedEntityInfo = (entityId: string | Cesium.Entity) => {
   const color = getEntityColor(mainEntity);
   const type = getEntityType(mainEntity);
 
-  console.log('获取到的实体信息 - 标签:', label);
-  console.log('获取到的实体信息 - 颜色:', color);
-  console.log('获取到的实体信息 - 类型:', type);
 
   return {
     label,
@@ -871,7 +934,11 @@ const getSelectedEntityInfo = (entityId: string | Cesium.Entity) => {
     checkMouseOverEntity,
     deleteEntity, // 导出删除实体的方法
     isViewerInitialized,
-    getSelectedEntityInfo
+    getSelectedEntityInfo,
+    changePointColor,
+    changeLineColor,
+    changePolygonColor,
+    changeEntityColor
   };
 };
 

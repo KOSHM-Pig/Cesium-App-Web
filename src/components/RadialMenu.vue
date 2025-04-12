@@ -31,9 +31,9 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { showNotification } from '../utils/notification';
+import * as Cesium from 'cesium';
 
 export default defineComponent({
-  // 定义 props 接收 deleteEntity 和 isViewerInitialized
   props: {
     deleteEntity: {
       type: Function,
@@ -42,52 +42,86 @@ export default defineComponent({
     isViewerInitialized: {
       type: Boolean,
       required: true
+    },
+    changeEntityColor: {
+      type: Function,
+      required: true
+    },
+    selectedColor: {
+      type: String,
+      required: true
     }
   },
   setup(props) {
+    // 菜单状态
     const isMenuOpen = ref(false);
+    // 菜单位置
     const menuPosition = ref<{ x: number; y: number } | null>(null);
+    // 选中的实体 ID
     const selectedEntityId = ref<string | null>(null);
 
+    // 定义菜单项
     const menuItems = [
       {
         label: '删除',
-        action: () => {
-          if (!props.isViewerInitialized) {
-            showNotification(1, 'Cesium Viewer 未初始化，暂无法删除', 3000);
-            return;
-          }
-          if (selectedEntityId.value) {
-            props.deleteEntity(selectedEntityId.value);
-            isMenuOpen.value = false;
-            selectedEntityId.value = null;
-          }
-        },
+        action: () => handleDelete(),
       },
-      { label: '功能2', action: () => showNotification(0,'功能2执行')},
-      { label: '功能3', action: () => showNotification(0,'功能3执行')},
-      { label: '功能4', action: () => showNotification(0,'功能4执行')},
-      { label: '功能5', action: () => showNotification(0,'功能5执行')},
-      { label: '功能6', action: () => showNotification(0,'功能6执行')},
-      { label: '功能7', action: () => showNotification(0,'功能7执行')},
-      { label: '功能8', action: () => showNotification(0,'功能8执行')},
+      {
+        label: '改变颜色',
+        action: () => handleChangeColor(),
+      },
+      { label: '功能3', action: () => showNotification(0, '功能3执行') },
+      { label: '功能4', action: () => showNotification(0, '功能4执行') },
+      { label: '功能5', action: () => showNotification(0, '功能5执行') },
+      { label: '功能6', action: () => showNotification(0, '功能6执行') },
+      { label: '功能7', action: () => showNotification(0, '功能7执行') },
+      { label: '功能8', action: () => showNotification(0, '功能8执行') },
     ];
 
+    // 处理删除操作
+    const handleDelete = () => {
+      if (!props.isViewerInitialized) {
+        showNotification(1, 'Cesium Viewer 未初始化，暂无法删除', 3000);
+        return;
+      }
+      if (selectedEntityId.value) {
+        props.deleteEntity(selectedEntityId.value);
+        closeMenu();
+      }
+    };
+    // 处理改变颜色操作
+    const handleChangeColor = () => {
+      if (!props.isViewerInitialized) {
+        showNotification(1, 'Cesium Viewer 未初始化，暂无法改变颜色', 3000);
+        return;
+      }
+      if (selectedEntityId.value) {
+        const color = Cesium.Color.fromCssColorString(props.selectedColor);
+        props.changeEntityColor(selectedEntityId.value, color);
+        showNotification(0, '颜色修改成功', 3000);
+      }
+      closeMenu();
+    };
+
+    // 关闭菜单
     const closeMenu = () => {
       isMenuOpen.value = false;
       selectedEntityId.value = null;
     };
 
+    // 打开菜单
     const openMenu = (position: { x: number; y: number }, entityId: string) => {
       menuPosition.value = position;
       selectedEntityId.value = entityId;
       isMenuOpen.value = true;
     };
 
-    const selectItem = (item) => {
+    // 选择菜单项
+    const selectItem = (item: { action: () => void }) => {
       item.action();
     };
 
+    // 计算菜单项角度
     const getItemAngle = (index: number) => {
       return (360 / menuItems.length) * index;
     };
@@ -106,20 +140,18 @@ export default defineComponent({
 </script>
 
 <style scoped>
+/* 菜单容器样式 */
 #radial-menu-container {
   position: fixed;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
   width: 200px;
   height: 200px;
   border-radius: 50%;
   background-color: rgba(128, 128, 128, 0.5);
   overflow: hidden;
-  margin-top: 20px;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
 }
 
+/* 关闭按钮包装器样式 */
 #close-button-wrapper {
   position: absolute;
   top: 50%;
@@ -132,12 +164,13 @@ export default defineComponent({
   pointer-events: auto;
 }
 
+/* 关闭按钮样式 */
 #close-button {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%) !important;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   color: white;
   border: none;
   border-radius: 50%;
@@ -151,24 +184,26 @@ export default defineComponent({
   transition: all 0.3s ease;
 }
 
+/* 关闭按钮悬停样式 */
 #close-button:hover {
   transform: translate(-50%, -50%) scale(1.1) !important;
   background: rgba(0, 0, 0, 0.7);
 }
 
+/* 菜单项容器样式 */
 #menu-items {
   width: 100%;
   height: 100%;
   position: relative;
 }
 
+/* 菜单项样式 */
 .menu-item {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  /* 修改clip-path为精确的八分之一圆 */
   clip-path: polygon(50% 50%, 100% 50%, 100% 0);
   transform-origin: 50% 50%;
   cursor: pointer;
@@ -176,21 +211,22 @@ export default defineComponent({
   transition: all 0.3s ease;
 }
 
+/* 菜单项悬停样式 */
 .menu-item:hover {
   background: linear-gradient(to right, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.15));
   transform: scale(1.05);
 }
 
+/* 菜单项文本样式 */
 .item-text {
   position: absolute;
   top: 50%;
-  left: 75%; /* 调整文字距离圆心的水平位置 */
-  transform: translateY(calc(-250% )) ; /* 垂直居中 */
+  left: 75%;
+  transform: translateY(-250%);
   color: white;
   font-weight: bold;
   font-size: 12px;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
   white-space: nowrap;
-    /* 增加负向 translateY 偏移，这里设置为 -30%，可根据实际情况调整 */
 }
 </style>

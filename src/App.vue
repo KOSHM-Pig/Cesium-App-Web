@@ -1,30 +1,32 @@
 <template>
   <div class="map-container">
     <!-- 选中实体信息框，根据 isOverEntity 控制显示隐藏，使用 v-show 结合 CSS 过渡 -->
-    <div v-show="isOverEntity" class="selected-entity-info fade">
-      <p>
-        <span class="info-label">标签: </span>
-        <span class="info-value">{{ entityInfo.label }}</span>
-      </p>
-      <p>
-        <span class="info-label">颜色: </span>
-        <span class="info-value">{{ entityInfo.color }}</span>
-        <!-- 新增显示颜色的小方块 -->
-        <span 
-          class="color-block" 
-          :style="{ backgroundColor: entityInfo.color === '未知颜色' ? '#ccc' : entityInfo.color }"
-        ></span>
-      </p>
-      <p>
-        <span class="info-label">类型: </span>
-        <span class="info-value">{{ entityInfo.type }}</span>
-      </p>
-    </div>
+      <div :class="['selected-entity-info', { fade: isOverEntity, 'fade-out': !isOverEntity }]" v-if="isEntityVisible">
+    <p>
+      <span class="info-label">标签: </span>
+      <span class="info-value">{{ entityInfo.label }}</span>
+    </p>
+    <p>
+      <span class="info-label">颜色: </span>
+      <span class="info-value">{{ entityInfo.color }}</span>
+      <span 
+        class="color-block" 
+        :style="{ backgroundColor: entityInfo.color === '未知颜色' ? '#ccc' : entityInfo.color }"
+      ></span>
+    </p>
+    <p>
+      <span class="info-label">类型: </span>
+      <span class="info-value">{{ entityInfo.type }}</span>
+    </p>
+  </div>
     <!-- 其他代码保持不变 -->
     <RadialMenu 
       ref="radialMenuRef"
       :deleteEntity="deleteEntity" 
       :isViewerInitialized="isViewerInitialized"
+      :changeEntityColor="changeEntityColor"
+      :selectedColor="selectedColor"
+      @change-color="handleChangeColor"
     />
     <!-- 工具栏 -->
     <div class="toolbar">
@@ -131,6 +133,8 @@ export default defineComponent({
       checkMouseOverEntity,
       deleteEntity,
       isViewerInitialized,
+      changeEntityColor,
+      
       getSelectedEntityInfo // 新增获取实体信息方法
     } = useCesium();
 
@@ -150,7 +154,7 @@ export default defineComponent({
       color: '未知颜色',
       type: '未知类型'
     }); // 新增实体信息
-
+    
     // 引用 RadialMenu 组件实例
     const radialMenuRef = ref<InstanceType<typeof RadialMenu> | null>(null);
 
@@ -161,6 +165,16 @@ export default defineComponent({
     const handleColorChange = () => {
       // 这里可以添加使用新颜色的逻辑，例如更新标点、标线的颜色
       showNotification(0,'标记颜色已更改');
+    };
+
+    // 处理 RadialMenu 发出的改变颜色事件
+    const handleChangeColor = (entityId: string) => {
+      const viewer = window['viewer']; // 假设 viewer 已经挂载到 window 上，可根据实际情况修改
+      const entity = viewer.entities.getById(entityId);
+      if (entity) {
+        const color = Cesium.Color.fromCssColorString(selectedColor.value);
+        changeEntityColor(entity, color);
+      }
     };
 
     const handleToolClick = (toolName: string) => {
@@ -298,26 +312,48 @@ export default defineComponent({
         currentViewMode.value = '2D';
       }
     };
+    const isEntityVisible = ref(false); // 控制信息框是否渲染
+    let hoverTimeout: number | null = null; // 定义隐藏信息框的定时器
+let showTimeout: number | null = null; // 定义显示信息框的定时器
 
-    const handleMouseMove = (event: MouseEvent) => {
-      // 可以调整这个值来改变检测范围
-      const pickRadius = 10; 
-      const entityId = checkMouseOverEntity(event, pickRadius);
-      isOverEntity.value = !!entityId;
+const handleMouseMove = (event: MouseEvent) => {
+  const pickRadius = 7; 
+  const entityId = checkMouseOverEntity(event, pickRadius);
 
-      if (entityId) {
-        // 获取实体信息并更新
-        entityInfo.value = getSelectedEntityInfo(Object(entityId));
-      } else {
-        // 鼠标不在实体上，显示未知信息
-        entityInfo.value = {
-          label: '未知标签',
-          color: '未知颜色',
-          type: '未知类型'
-        };
-      }
-    };
+  if (entityId) {
+    // 鼠标在实体上，立即改变光标状态
+    isOverEntity.value = true;
 
+    // 清除隐藏信息框的定时器
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      hoverTimeout = null;
+    }
+
+    isEntityVisible.value = true;
+
+
+    // 更新实体信息
+    entityInfo.value = getSelectedEntityInfo(Object(entityId));
+  } else {
+    // 鼠标不在实体上，立即改变光标状态
+    isOverEntity.value = false;
+
+    // 清除显示信息框的定时器
+    if (showTimeout) {
+      clearTimeout(showTimeout);
+      showTimeout = null;
+    }
+
+    // 延迟隐藏信息框
+    if (!hoverTimeout) {
+      hoverTimeout = window.setTimeout(() => {
+        isEntityVisible.value = false; // 隐藏信息框
+        hoverTimeout = null;
+      }, 300); // 延迟 300 毫秒隐藏
+    }
+  }
+};
     onMounted(() => {
       initializeCesium();
       window.addEventListener('keydown', handleKeyDown);
@@ -353,6 +389,9 @@ export default defineComponent({
       deleteEntity,
       selectedEntityId,
       isViewerInitialized,
+      isEntityVisible,
+      handleChangeColor,
+      changeEntityColor,
       entityInfo // 导出实体信息
     };
   },

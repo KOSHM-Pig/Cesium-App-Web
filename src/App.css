@@ -186,18 +186,27 @@
   padding: 10px;
   border-radius: 4px;
   z-index: 1000;
-  min-width: 188px; 
-  font-size: 12px; 
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); 
+  min-width: 188px;
+  font-size: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   opacity: 0; /* 初始透明度为 0 */
-  transition: opacity 1s ease; /* 添加透明度过渡动画 */
+  transform: translateX(10px); /* 初始位置稍微向右偏移 */
+  transition: opacity 0.3s ease, transform 0.3s ease; /* 添加透明度和位置的过渡动画 */
+  pointer-events: none; /* 防止隐藏时触发鼠标事件 */
 }
 
-/* 显示时的样式 */
+/* 鼠标在实体上时显示的样式 */
 .selected-entity-info.fade {
-  opacity: 1;
+  opacity: 1; /* 完全显示 */
+  transform: translateX(0); /* 恢复到原始位置 */
+  pointer-events: auto; /* 允许鼠标事件 */
 }
 
+/* 鼠标移出实体时的缓出动画 */
+.selected-entity-info.fade-out {
+  opacity: 0; /* 渐隐 */
+  transform: translateX(-10px); /* 向左偏移 */
+}
 
 /* 信息标签样式 */
 .info-label {
