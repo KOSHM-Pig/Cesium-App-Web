@@ -1,0 +1,10 @@
+/* ... existing code ... */
+.close-button {
+    width: 50%;  /* 设置宽度为半径的一半 */
+    height: 50%; /* 设置高度为半径的一半 */
+    position: absolute;
+    top: 25%;    /* 调整位置使其居中 */
+    left: 25%;
+    /* ... existing code ... */
+}
+/* ... existing code ... */

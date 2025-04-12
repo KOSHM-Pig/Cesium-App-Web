@@ -1,5 +1,7 @@
 <template>
   <div class="map-container">
+    <!-- 引用 RadialMenu 组件并绑定 ref -->
+    <RadialMenu ref="radialMenuRef" />
     <!-- 工具栏 -->
     <div class="toolbar">
       <!-- 颜色选择器 -->
@@ -9,6 +11,7 @@
         v-model="selectedColor"
         @change="handleColorChange"
       />
+      
       <div
         class="tool"
         :class="{ 'active': activeTool === tool.name }"
@@ -35,7 +38,7 @@
       :style="{
         cursor: isOverEntity ? 'pointer' : (activeTool === '标点' || activeTool === '标线' || activeTool === '标面' ? 'crosshair' : 'default')
       }"
-      @click="handleMapClick"
+      @click="handleMapClick($event)"
       @mousemove="handleMouseMove"
     >
       <!-- 放大缩小按钮组 -->
@@ -65,10 +68,12 @@ import * as Cesium from 'cesium';
 import './App.css';
 import NotificationBox from './components/NotificationBox.vue';
 import { showNotification } from './utils/notification';
+import RadialMenu from './components/RadialMenu.vue';
 
 export default defineComponent({
   components: {
-    NotificationBox
+    NotificationBox,
+    RadialMenu
   },
   setup() {
     const {
@@ -112,6 +117,9 @@ export default defineComponent({
     const currentLinePoints = ref<Array<{ lat: number; lon: number; height: number }>>([]);
     const selectedColor = ref('#ff0000'); // 默认红色
     const isOverEntity = ref(false); // 用于跟踪鼠标是否在实体上
+
+    // 引用 RadialMenu 组件实例
+    const radialMenuRef = ref<InstanceType<typeof RadialMenu> | null>(null);
 
     // 处理颜色变化
     const handleColorChange = () => {
@@ -157,7 +165,22 @@ export default defineComponent({
       }
     };
 
-    const handleMapClick = () => {
+    const handleMapClick = (event: MouseEvent) => {
+      // 可以调整这个值来改变检测范围
+      const pickRadius = 10; 
+      const entityId = checkMouseOverEntity(event, pickRadius);
+      if (entityId) {
+        // 若点击到实体，打开 RadialMenu 菜单
+        if (radialMenuRef.value) {
+          radialMenuRef.value.openMenu();
+        }
+      } else {
+        // 若点击别处，关闭 RadialMenu 菜单
+        if (radialMenuRef.value) {
+          radialMenuRef.value.closeMenu();
+        }
+      }
+
       if (activeTool.value === '标点') {
         if (longitude_num.value !== null && latitude_num.value !== null) {
           const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
@@ -248,6 +271,8 @@ export default defineComponent({
       isOverEntity.value = !!entityId;
     };
 
+
+
     onMounted(() => {
       initializeCesium();
       window.addEventListener('keydown', handleKeyDown);
@@ -277,7 +302,8 @@ export default defineComponent({
       selectedColor,
       handleColorChange,
       isOverEntity,
-      handleMouseMove
+      handleMouseMove,
+      radialMenuRef // 导出 radialMenuRef
     };
   },
 });

@@ -1,8 +1,13 @@
-import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
-import cesium from 'vite-plugin-cesium'
-console.log(cesium)
-// https://vite.dev/config/
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+import cesium from 'vite-plugin-cesium';
+import path from 'path';
+
 export default defineConfig({
-  plugins: [vue(),cesium()],
-})
+  plugins: [vue(), cesium()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
+  },
+});

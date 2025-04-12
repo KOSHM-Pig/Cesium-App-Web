@@ -4,11 +4,15 @@ import { mapProviders } from './mapProviders';
 import NotificationBox from '../components/NotificationBox.vue';
 import { showNotification } from '../utils/notification';
 
-
-
-const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MWU0NGIwMS1hZWQyLTRlODktYmExMi04NzJjOGYyMTE5Y2EiLCJpZCI6MjkxMjMzLCJpYXQiOjE3NDQzNjQ4ODF9.huZ7JqhHqnuhQWzjP6qxJIS6LCUPpbArJqZd1JzTfUA' // 替换实际token
+const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MWU0NGIwMS1hZWQyLTRlODktYmExMi04NzJjOGYyMTE5Y2EiLCJpZCI6MjkxMjMzLCJpYXQiOjE3NDQzNjQ4ODF9.huZ7JqhHqnuhQWzjP6qxJIS6LCUPpbArJqZd1JzTfUA'; // 替换实际token
 
 Cesium.Ion.defaultAccessToken = token; // 设置Cesium Ion的访问令牌
+
+// 用于记录点、线、面的数量
+const pointCounter = ref(0);
+const lineCounter = ref(0);
+const polygonCounter = ref(0);
+
 export const useCesium = () => {
   const cesiumContainer = ref<HTMLDivElement | null>(null);
   let viewer: Cesium.Viewer;
@@ -43,19 +47,18 @@ export const useCesium = () => {
       navigationInstructionsInitiallyVisible: false,
       creditContainer: document.createElement("div"),
       terrainProvider: Cesium.createWorldTerrain({
-        
+
       })
     });
 
     // 隐藏版权信息
     const creditContainer = viewer.cesiumWidget.creditContainer as HTMLElement;
     creditContainer.style.display = 'none';
-    resetMap()
+    resetMap();
     // 初始化默认地图
     loadMap('arcgis');
 
-    viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK); 
-
+    viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 
     // 设置初始视角
     // viewer.camera.flyTo({
@@ -67,7 +70,7 @@ export const useCesium = () => {
     // });
 
     // 地理信息显示 跟随鼠标移动事件
-    
+
     const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
     handler.setInputAction((movement: Cesium.ScreenSpaceEventHandler.MotionEvent) => {
       const cartesian = viewer.scene.globe.pick(viewer.camera.getPickRay(movement.endPosition), viewer.scene);
@@ -79,8 +82,7 @@ export const useCesium = () => {
         longitude_num.value = long;
         latitude_num.value = lat;
         height_num.value = Math.round(alt);
-        
-    
+
         // 添加东经西经、北纬南纬标识
         longitude.value = `${Math.abs(long).toFixed(4)}° ${long >= 0 ? 'E' : 'W'}`;
         latitude.value = `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}`;
@@ -92,7 +94,7 @@ export const useCesium = () => {
           height.value = `${alt.toFixed(2)} m`;
         }
       }
-      
+
     }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
   };
 
@@ -134,29 +136,34 @@ export const useCesium = () => {
   };
 
   // 添加标记点
-  const addPoint = ( position: Cesium.Cartesian3, color: Cesium.Color) => {
+  const addPoint = (position: Cesium.Cartesian3, color: Cesium.Color) => {
     console.log('viewer:' + viewer);
     if (viewer && viewer.entities) {
-        viewer.entities.add({
-            position: position,
-            point: {
-                pixelSize: 10,
-                color: color
-            }
-        });
-    }else{
+      pointCounter.value++;
+      viewer.entities.add({
+        position: position,
+        point: {
+          pixelSize: 10,
+          color: color
+        },
+        label: {
+          text: `点${pointCounter.value}`,
+          font: '14px sans-serif',
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -10)
+        }
+      });
+    } else {
       console.log('viewer or viewer.entities is undefined');
     }
   };
 
-
   // 根据经纬度和高度添加点
   const addPointByLatLon = (lat: number, lon: number, height: number, color: Cesium.Color) => {
-    // 检查高度值是否合理
-    if (height < 0) {
-      showNotification(1, '高度值无效', 3000);
-      return;
-    }
     const position = Cesium.Cartesian3.fromDegrees(lon, lat, height);
     // 格式化经纬度
     const formattedLat = formatCoordinate(lat, true);
@@ -177,7 +184,7 @@ export const useCesium = () => {
     }
   };
 
-    // 获取当前经纬度对应脚下地面的海平面高度
+  // 获取当前经纬度对应脚下地面的海平面高度
   const getCameraGroundElevation = (lat: number, lon: number) => {
     if (typeof lon!== 'number' || typeof lat!== 'number') {
       console.error('Invalid longitude or latitude values. Expected numbers.');
@@ -191,132 +198,132 @@ export const useCesium = () => {
   };
 
   // 辅助函数：格式化经纬度
-const formatCoordinate = (value: number, isLatitude: boolean) => {
-  const absValue = Math.abs(value).toFixed(4);
-  if (isLatitude) {
-    return `${absValue}° ${value >= 0 ? 'N' : 'S'}`;
-  } else {
-    return `${absValue}° ${value >= 0 ? 'E' : 'W'}`;
-  }
-};
-      
-      // 更新高度信息的函数
-      const updateHeightInfo = () => {
-          const cartesian = viewer.camera.position;
-          const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
-          const alt = viewer.camera.positionCartographic.height;
-          height_num.value = Math.round(alt);
-      
-          // 根据高度切换单位
-          if (alt >= 10000) {
-              height.value = `${(alt / 1000).toFixed(2)} km`;
-          } else {
-              height.value = `${alt.toFixed(2)} m`;
-          }
-      };
+  const formatCoordinate = (value: number, isLatitude: boolean) => {
+    const absValue = Math.abs(value).toFixed(4);
+    if (isLatitude) {
+      return `${absValue}° ${value >= 0 ? 'N' : 'S'}`;
+    } else {
+      return `${absValue}° ${value >= 0 ? 'E' : 'W'}`;
+    }
+  };
 
-      // 定义节流时间间隔（毫秒）
-      const THROTTLE_INTERVAL = 100;
-      
-      // 记录上次调用 CameraZoomIn 和 CameraZoomOut 的时间
-      let lastZoomInTime = 0;
-      let lastZoomOutTime = 0;
+  // 更新高度信息的函数
+  const updateHeightInfo = () => {
+    const cartesian = viewer.camera.position;
+    const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+    const alt = viewer.camera.positionCartographic.height;
+    height_num.value = Math.round(alt);
 
-      // 放大相机
-      const CameraZoomIn = () => {
-          const now = Date.now();
-          // 检查是否在节流时间间隔内
-          if (now - lastZoomInTime < THROTTLE_INTERVAL) {
-              console.log('操作过于频繁，请稍后再试');
-              return;
-          }
-          lastZoomInTime = now;
-      
-          // 手动更新高度信息
-          updateHeightInfo();
-      
-          if (viewer) {
-              // 检查当前对地高度，如果小于等于 50 米则不进行放大操作
-              if (height_num.value && height_num.value <= 50) {
-                  console.log('已经达到最小高度，无法继续放大');
-                  return;
-              }
-      
-              const currentPosition = viewer.camera.position;
-              const direction = viewer.camera.direction;
-              let zoomStep = 100; // 最小步长作为默认值
-      
-              // 根据对地高度的 50% 调整放大步长
-              if (height_num.value) {
-                  zoomStep = Math.max(100, height_num.value * 0.5);
-              }
-      
-              const newPosition = Cesium.Cartesian3.add(
-                  currentPosition,
-                  Cesium.Cartesian3.multiplyByScalar(direction, -zoomStep, new Cesium.Cartesian3()),
-                  new Cesium.Cartesian3()
-              );
-      
-              viewer.camera.flyTo({
-                  destination: newPosition,
-                  orientation: {
-                      heading: viewer.camera.heading,
-                      pitch: viewer.camera.pitch,
-                      roll: viewer.camera.roll
-                  },
-                  duration: 1 // 飞行动画持续时间（秒）
-              });
-      
-              console.log('CameraZoomIn called');
-              console.log('Current camera position:', currentPosition);
-              console.log('New camera position:', newPosition);
-          }
-      };
+    // 根据高度切换单位
+    if (alt >= 10000) {
+      height.value = `${(alt / 1000).toFixed(2)} km`;
+    } else {
+      height.value = `${alt.toFixed(2)} m`;
+    }
+  };
 
-      // 缩小相机
-      const CameraZoomOut = () => {
-          const now = Date.now();
-          // 检查是否在节流时间间隔内
-          if (now - lastZoomOutTime < THROTTLE_INTERVAL) {
-              console.log('操作过于频繁，请稍后再试');
-              return;
-          }
-          lastZoomOutTime = now;
-      
-          // 手动更新高度信息
-          updateHeightInfo();
-      
-          if (viewer) {
-              const currentPosition = viewer.camera.position;
-              const direction = viewer.camera.direction;
-              let zoomStep = 100; // 最小步长作为默认值
-      
-              // 根据对地高度的 50% 调整缩小步长
-              if (height_num.value) {
-                  zoomStep = Math.max(100, height_num.value * 0.5);
-              }
-      
-              const newPosition = Cesium.Cartesian3.add(
-                  currentPosition,
-                  Cesium.Cartesian3.multiplyByScalar(direction, zoomStep, new Cesium.Cartesian3()),
-                  new Cesium.Cartesian3()
-              );
-      
-              viewer.camera.flyTo({
-                  destination: newPosition,
-                  orientation: {
-                      heading: viewer.camera.heading,
-                      pitch: viewer.camera.pitch,
-                      roll: viewer.camera.roll
-                  },
-                  duration: 1 // 飞行动画持续时间（秒）
-              });
-      
-              console.log('CameraZoomOut called');
-              console.log('Current camera position:', currentPosition);
-              console.log('New camera position:', newPosition);
-          }
-      };
+  // 定义节流时间间隔（毫秒）
+  const THROTTLE_INTERVAL = 100;
+
+  // 记录上次调用 CameraZoomIn 和 CameraZoomOut 的时间
+  let lastZoomInTime = 0;
+  let lastZoomOutTime = 0;
+
+  // 放大相机
+  const CameraZoomIn = () => {
+    const now = Date.now();
+    // 检查是否在节流时间间隔内
+    if (now - lastZoomInTime < THROTTLE_INTERVAL) {
+      console.log('操作过于频繁，请稍后再试');
+      return;
+    }
+    lastZoomInTime = now;
+
+    // 手动更新高度信息
+    updateHeightInfo();
+
+    if (viewer) {
+      // 检查当前对地高度，如果小于等于 50 米则不进行放大操作
+      if (height_num.value && height_num.value <= 50) {
+        console.log('已经达到最小高度，无法继续放大');
+        return;
+      }
+
+      const currentPosition = viewer.camera.position;
+      const direction = viewer.camera.direction;
+      let zoomStep = 100; // 最小步长作为默认值
+
+      // 根据对地高度的 50% 调整放大步长
+      if (height_num.value) {
+        zoomStep = Math.max(100, height_num.value * 0.5);
+      }
+
+      const newPosition = Cesium.Cartesian3.add(
+        currentPosition,
+        Cesium.Cartesian3.multiplyByScalar(direction, -zoomStep, new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      );
+
+      viewer.camera.flyTo({
+        destination: newPosition,
+        orientation: {
+          heading: viewer.camera.heading,
+          pitch: viewer.camera.pitch,
+          roll: viewer.camera.roll
+        },
+        duration: 1 // 飞行动画持续时间（秒）
+      });
+
+      console.log('CameraZoomIn called');
+      console.log('Current camera position:', currentPosition);
+      console.log('New camera position:', newPosition);
+    }
+  };
+
+  // 缩小相机
+  const CameraZoomOut = () => {
+    const now = Date.now();
+    // 检查是否在节流时间间隔内
+    if (now - lastZoomOutTime < THROTTLE_INTERVAL) {
+      console.log('操作过于频繁，请稍后再试');
+      return;
+    }
+    lastZoomOutTime = now;
+
+    // 手动更新高度信息
+    updateHeightInfo();
+
+    if (viewer) {
+      const currentPosition = viewer.camera.position;
+      const direction = viewer.camera.direction;
+      let zoomStep = 100; // 最小步长作为默认值
+
+      // 根据对地高度的 50% 调整缩小步长
+      if (height_num.value) {
+        zoomStep = Math.max(100, height_num.value * 0.5);
+      }
+
+      const newPosition = Cesium.Cartesian3.add(
+        currentPosition,
+        Cesium.Cartesian3.multiplyByScalar(direction, zoomStep, new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      );
+
+      viewer.camera.flyTo({
+        destination: newPosition,
+        orientation: {
+          heading: viewer.camera.heading,
+          pitch: viewer.camera.pitch,
+          roll: viewer.camera.roll
+        },
+        duration: 1 // 飞行动画持续时间（秒）
+      });
+
+      console.log('CameraZoomOut called');
+      console.log('Current camera position:', currentPosition);
+      console.log('New camera position:', newPosition);
+    }
+  };
 
   // 添加标线的函数
   // 存储所有已完成的线实体
@@ -324,13 +331,14 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
   // 存储当前正在绘制的线实体
   let currentLineEntity: Cesium.Entity | null = null;
 
-  const addLine = (positions: Cesium.Cartesian3[],color:Cesium.Color) => {
+  // 修改 addLine 方法，移除生成标签的逻辑
+  const addLine = (positions: Cesium.Cartesian3[], color: Cesium.Color) => {
     if (viewer && viewer.entities) {
       // 清除之前的当前线实体
       if (currentLineEntity) {
         viewer.entities.remove(currentLineEntity);
       }
-      const entity = viewer.entities.add({
+      const lineEntity = viewer.entities.add({
         polyline: {
           positions: Cesium.Cartesian3.fromDegreesArrayHeights(positions.flatMap(pos => {
             const cartographic = Cesium.Cartographic.fromCartesian(pos);
@@ -344,19 +352,106 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
           material: color
         }
       });
-      currentLineEntity = entity;
-      return entity;
+      currentLineEntity = lineEntity;
+      return lineEntity;
     }
     return null;
   };
 
   // 根据经纬度和高度添加标线
-  const addLineByLatLon = (points: Array<{ lat: number; lon: number; height: number }>,color:Cesium.Color) => {
+  const addLineByLatLon = (points: Array<{ lat: number; lon: number; height: number }>, color: Cesium.Color) => {
     // 提前缓存转换结果
     const positions = points.map(point =>
       Cesium.Cartesian3.fromDegrees(point.lon, point.lat, point.height)
     );
-    return addLine(positions,color);
+    return addLine(positions, color);
+  };
+
+  const addPolygon = (points: Array<{ lat: number; lon: number; height: number }>, color: Cesium.Color) => {
+    if (viewer && viewer.entities && points.length >= 3) {
+      const positions = points.map(point =>
+        Cesium.Cartesian3.fromDegrees(point.lon, point.lat, point.height)
+      );
+      const polygonEntity = viewer.entities.add({
+        polygon: {
+          hierarchy: new Cesium.PolygonHierarchy(positions),
+          material: color.withAlpha(0.5), // 设置透明度
+        }
+      });
+      return polygonEntity;
+    }
+    return null;
+  };
+
+  // 修改 completeCurrentLine 方法，添加生成标签的逻辑
+  const completeCurrentLine = () => {
+    if (currentLineEntity) {
+      lineCounter.value++;
+      const positions = currentLineEntity.polyline?.positions.getValue(Cesium.JulianDate.now());
+      if (positions && positions.length > 0) {
+        const labelPosition = positions[Math.floor(positions.length / 2)];
+        viewer.entities.add({
+          position: labelPosition,
+          point: {
+            pixelSize: 0, // 透明点
+            color: Cesium.Color.TRANSPARENT
+          },
+          label: {
+            text: `线${lineCounter.value}`,
+            font: '14px sans-serif',
+            fillColor: Cesium.Color.WHITE,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 2,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            pixelOffset: new Cesium.Cartesian2(0, -10)
+          }
+        });
+      }
+      completedLineEntities.value.push(currentLineEntity);
+      currentLineEntity = null;
+      showNotification(0, '当前线已绘制完成', 3000);
+    }
+  };
+
+  // 修改 completeCurrentPolygon 方法，添加生成标签的逻辑
+  const completeCurrentPolygon = () => {
+    if (currentPolygonEntity) {
+      polygonCounter.value++;
+      const positions = currentPolygonEntity.polygon?.hierarchy.getValue(Cesium.JulianDate.now()).positions;
+      if (positions && positions.length > 0) {
+        const center = Cesium.BoundingSphere.fromPoints(positions).center;
+        viewer.entities.add({
+          position: center,
+          point: {
+            pixelSize: 0, // 透明点
+            color: Cesium.Color.TRANSPARENT
+          },
+          label: {
+            text: `面${polygonCounter.value}`,
+            font: '14px sans-serif',
+            fillColor: Cesium.Color.WHITE,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 2,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            pixelOffset: new Cesium.Cartesian2(0, -10)
+          }
+        });
+      }
+      completedPolygonEntities.value.push(currentPolygonEntity);
+      currentPolygonEntity = null;
+      currentPolygonPoints.value = [];
+      showNotification(0, '当前面绘制完成', 3000);
+    }
+  };
+
+  // 更新当前面的方法
+  const updateCurrentPolygon = (color: Cesium.Color) => {
+    if (currentPolygonEntity && viewer && viewer.entities) {
+      viewer.entities.remove(currentPolygonEntity);
+    }
+    currentPolygonEntity = addPolygon(currentPolygonPoints.value, color);
   };
 
   const clearCurrentLine = () => {
@@ -366,13 +461,7 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
     }
   };
 
-  const completeCurrentLine = () => {
-    if (currentLineEntity) {
-      // 可以添加将当前线实体添加到已完成线列表的逻辑
-      currentLineEntity = null;
-      showNotification(0, '当前线已绘制完成', 3000);
-    }
-  };
+
 
   // 存储当前标面过程中的点
   const currentPolygonPoints = ref<Array<{ lat: number; lon: number; height: number }>>([]);
@@ -381,40 +470,9 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
   // 存储所有完成的面实体
   const completedPolygonEntities = ref<Cesium.Entity[]>([]);
 
-  // 添加面的方法
-  const addPolygon = (points: Array<{ lat: number; lon: number; height: number }>,color:Cesium.Color) => {
-    if (viewer && viewer.entities && points.length >= 3) {
-      const positions = points.map(point =>
-        Cesium.Cartesian3.fromDegrees(point.lon, point.lat, point.height)
-      );
-      const entity = viewer.entities.add({
-        polygon: {
-          hierarchy: new Cesium.PolygonHierarchy(positions),
-          material: color.withAlpha(0.5), // 设置透明度
-        }
-      });
-      return entity;
-    }
-    return null;
-  };
 
-  // 更新当前面的方法
-  const updateCurrentPolygon = (color: Cesium.Color) => {
-    if (currentPolygonEntity && viewer && viewer.entities) {
-      viewer.entities.remove(currentPolygonEntity);
-    }
-    currentPolygonEntity = addPolygon(currentPolygonPoints.value,color);
-  };
 
-  // 完成当前面绘制的方法
-  const completeCurrentPolygon = () => {
-    if (currentPolygonEntity) {
-      completedPolygonEntities.value.push(currentPolygonEntity);
-      currentPolygonEntity = null;
-      currentPolygonPoints.value = [];
-      showNotification(0, '当前面绘制完成', 3000);
-    }
-  };
+
 
   // 清除所有完成的面
   const clearAllPolygons = () => {
