@@ -23,6 +23,7 @@
 
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
+import { showNotification } from '../utils/notification';
 
 export default defineComponent({
   name: 'RadialMenu',
@@ -30,14 +31,14 @@ export default defineComponent({
     const isMenuOpen = ref(false); // 初始状态设置为关闭
 
     const menuItems = [
-      { label: '功能1', action: () => console.log('功能1执行') },
-      { label: '功能2', action: () => console.log('功能2执行') },
-      { label: '功能3', action: () => console.log('功能3执行') },
-      { label: '功能4', action: () => console.log('功能4执行') },
-      { label: '功能5', action: () => console.log('功能5执行') },
-      { label: '功能6', action: () => console.log('功能6执行') },
-      { label: '功能7', action: () => console.log('功能7执行') },
-      { label: '功能8', action: () => console.log('功能8执行') },
+      { label: '功能1', action: () => showNotification(0,'功能1执行')},
+      { label: '功能2', action: () => showNotification(0,'功能2执行')},
+      { label: '功能3', action: () => showNotification(0,'功能3执行')},
+      { label: '功能4', action: () => showNotification(0,'功能4执行')},
+      { label: '功能5', action: () => showNotification(0,'功能5执行')},
+      { label: '功能6', action: () => showNotification(0,'功能6执行')},
+      { label: '功能7', action: () => showNotification(0,'功能7执行')},
+      { label: '功能8', action: () => showNotification(0,'功能8执行')},
     ];
 
     const closeMenu = () => {
