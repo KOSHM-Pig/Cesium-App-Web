@@ -1,24 +1,25 @@
-import { GeoPointTracker, GeoPosition } from './GeoPointTracker';
+import { GeoPointTracker } from './GeoPointTracker';
+import { GeoPosition } from './types';
 import * as Cesium from 'cesium';
 import type { TAKClientConfig, TAKClientState } from './types';
 
+/*​
+ * TAK 协议客户端核心类
+ * 功能：连接 TAK 服务器，持续发送 CoT（Cursor on Target）格式的位置情报
+ */
+
 export class TAKClient {
-  private config: TAKClientConfig;
-  private geoTracker: GeoPointTracker;
-  private state: TAKClientState;
-  private updateLoop?: NodeJS.Timeout;
+  private config: TAKClientConfig;// 客户端配置（必须包含重连策略）
+  private geoTracker: GeoPointTracker;// 地理坐标追踪器
+  private state: TAKClientState;// 运行时状态管理
+  private updateLoop?: NodeJS.Timeout;// 位置上报定时器
 
   constructor(viewer: Cesium.Viewer, config: TAKClientConfig) {
-    this.config = {
-      uid: this.generateSerialId(),
-      updateInterval: 3000,
-      reconnectPolicy: {
-        maxRetries: 5,
-        baseDelay: 1000,
-        backoffFactor: 2
-      },
-      ...config
-    };
+    this.config = config; // 直接使用用户配置
+  // 必须验证关键参数
+    if (!config.reconnectPolicy) {
+      throw new Error('reconnectPolicy is required');
+    }
 
     this.geoTracker = new GeoPointTracker(viewer);
     this.state = {
@@ -55,7 +56,10 @@ export class TAKClient {
     clearInterval(this.updateLoop);
     this.state.status.connection = 'disconnected';
   }
-
+  /*​
+  * 生成设备唯一标识符
+  * @returns 格式：时间戳基数36编码-4位随机码（示例：K5H3-8G7D）
+  */
   private generateSerialId(): string {
     const timePart = Date.now().toString(36);
     const randomPart = Math.random().toString(36).substr(2, 4);
@@ -81,7 +85,15 @@ export class TAKClient {
       this.state.status.connection = 'disconnected';
     };
   }
-
+  /*​
+  * 发送位置更新（核心业务逻辑）
+  * 流程：
+  * 1. 获取当前坐标
+  * 2. 过滤重复坐标（经纬度差异 < 1e-6 度≈0.11米）
+  * 3. 生成 CoT 消息
+  * 4. 通过 WebSocket 发送
+  * 5. 更新位置历史
+  */
   private async sendPositionUpdate(): Promise<void> {
     const position = await this.geoTracker.getCurrentPoint();
     if (!position || this.isDuplicatePosition(position)) return;
@@ -121,13 +133,23 @@ export class TAKClient {
   private getTAKTimestamp(): string {
     return new Date().toISOString().replace('Z', '+00:00');
   }
-
+  /*​
+  * 检测重复位置（防抖动过滤）
+  * @param newPos 新坐标
+  * @returns 当经纬度差异小于 1e-6 度时视为重复
+  */
   private isDuplicatePosition(newPos: GeoPosition): boolean {
     return !!this.state.lastPosition && 
       Math.abs(newPos.lat - this.state.lastPosition.lat) < 1e-6 &&
       Math.abs(newPos.lon - this.state.lastPosition.lon) < 1e-6;
   }
-
+  /*​
+  * 更新位置历史记录（FIFO队列）
+  * @param pos 新位置
+  * 功能：
+  * - 保存最新位置
+  * - 维护最多100条历史记录
+  */
   private updatePositionHistory(pos: GeoPosition): void {
     this.state.lastPosition = { ...pos };
     this.state.positionHistory.push(pos);
@@ -135,7 +157,13 @@ export class TAKClient {
       this.state.positionHistory.shift();
     }
   }
-
+  /*​
+  * 计算航向角（真北方向）
+  * @returns 角度值（0-359度）
+  * 算法：
+  * - 使用最近两个位置点
+  * - 基于球面三角公式计算方位角
+  */
   private calculateBearing(): number {
     if (this.state.positionHistory.length < 2) return 0;
     
