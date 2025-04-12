@@ -1,6 +1,6 @@
 <template>
   <div class="map-container">
-    <!-- 新增工具栏 -->
+    <!-- 工具栏 -->
     <div class="toolbar">
       <div
         class="tool"
@@ -12,6 +12,7 @@
         <span>{{ tool.name }}</span>
       </div>
     </div>
+    <!-- 地图控制部分 -->
     <div class="map-control">
       <select v-model="selectedMap" @change="handleMapChange">
         <option v-for="(provider, key) in mapProviders" :key="key" :value="key">
@@ -20,13 +21,14 @@
       </select>
       <button @click="resetMap" class="map-control__button">初始化</button>
     </div>
+    <!-- Cesium 容器 -->
     <div
       ref="cesiumContainer"
       class="cesium-container"
-      :style="{ cursor: activeTool === '标点' || activeTool === '标线' ? 'crosshair' : 'default' }"
+      :style="{ cursor: activeTool === '标点' || activeTool === '标线' || activeTool === '标面' ? 'crosshair' : 'default' }"
       @click="handleMapClick"
     >
-      <!-- 新增放大缩小按钮组 -->
+      <!-- 放大缩小按钮组 -->
       <div class="zoom-buttons">
         <button @click="CameraZoomOut" class="map-control__button">放大</button>
         <button @click="CameraZoomIn" class="map-control__button">缩小</button>
@@ -38,7 +40,7 @@
       <span class="status-item">{{ latitude || 'N/A' }}</span>
       <span class="status-item">{{ height || 'N/A' }}</span>
       <span></span>
-      <!-- 添加 2D/3D 切换按钮 -->
+      <!-- 2D/3D 切换按钮 -->
       <button @click="toggleViewMode" class="status-item view-mode-button">
         {{ currentViewMode === '2D' ? '切换到 2D' : '切换到 3D' }}
       </button>
@@ -47,13 +49,12 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, ref } from 'vue';
+import { defineComponent, onMounted, onUnmounted, ref } from 'vue';
 import { useCesium } from './utils/cesiumUtils';
 import * as Cesium from 'cesium';
 import './App.css';
 import NotificationBox from './components/NotificationBox.vue';
 import { showNotification } from './utils/notification';
-
 
 export default defineComponent({
   components: {
@@ -82,7 +83,13 @@ export default defineComponent({
       CameraZoomOut,
       addLineByLatLon,
       clearCurrentLine,
-      completeCurrentLine
+      completeCurrentLine,
+      // 引入标面相关方法
+      completeCurrentPolygon,
+      clearAllPolygons,
+      updateCurrentPolygon,
+      addPolygon,
+      currentPolygonPoints // 引入 currentPolygonPoints
     } = useCesium();
 
     const activeTool = ref<string | null>(null);
@@ -92,7 +99,6 @@ export default defineComponent({
       { name: '标面' }
     ];
     const showAnnularMenu = ref(false);
-
     const currentLinePoints = ref<Array<{ lat: number; lon: number; height: number }>>([]);
 
     const handleToolClick = (toolName: string) => {
@@ -108,10 +114,25 @@ export default defineComponent({
           // 开始新的画线
           activeTool.value = '标线';
         }
+      } else if (toolName === '标面') {
+        if (activeTool.value === '标面') {
+          // 结束当前标面
+          completeCurrentPolygon();
+          activeTool.value = null;
+        } else {
+          // 开始新的标面
+          activeTool.value = '标面';
+          // 清空之前的标面点
+          currentPolygonPoints.value = [];
+        }
       } else {
-        // 切换到其他工具，结束当前画线
+        // 切换到其他工具，结束当前画线和标面
         if (activeTool.value === '标线' && currentLinePoints.value.length >= 2) {
           completeCurrentLine();
+        }
+        if (activeTool.value === '标面') {
+          completeCurrentPolygon();
+          currentPolygonPoints.value = [];
         }
         currentLinePoints.value = [];
         activeTool.value = activeTool.value === toolName ? null : toolName;
@@ -119,8 +140,18 @@ export default defineComponent({
     };
 
     const handleMapClick = () => {
-      if (activeTool.value === '标线') {
-        if (longitude_num.value && latitude_num.value) {
+      if (activeTool.value === '标点') {
+        if (longitude_num.value !== null && latitude_num.value !== null) {
+          const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
+          addPointByLatLon(
+            latitude_num.value,
+            longitude_num.value,
+            groundHeight,
+            Cesium.Color.RED
+          );
+        }
+      } else if (activeTool.value === '标线') {
+        if (longitude_num.value !== null && latitude_num.value !== null) {
           const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
           currentLinePoints.value.push({
             lat: latitude_num.value,
@@ -133,31 +164,47 @@ export default defineComponent({
 
           if (currentLinePoints.value.length >= 2) {
             // 重新绘制当前正在绘制的线
-            const entity = addLineByLatLon(currentLinePoints.value);
-            // 这里假设返回的实体赋值给 currentLineEntity，在 cesiumUtils 中处理
+            addLineByLatLon(currentLinePoints.value);
           }
         }
-      } else if (activeTool.value === '标点') {
-        if (longitude_num.value && latitude_num.value) {
-          addPointByLatLon(
-            latitude_num.value,
-            longitude_num.value,
-            getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0,
-            Cesium.Color.RED
-          );
+      } else if (activeTool.value === '标面') {
+        if (longitude_num.value !== null && latitude_num.value !== null) {
+          const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
+          // 收集标面的点
+          currentPolygonPoints.value.push({
+            lat: latitude_num.value,
+            lon: longitude_num.value,
+            height: groundHeight
+          });
+          // 更新多边形
+          updateCurrentPolygon();
         }
       }
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && activeTool.value === '标线' && currentLinePoints.value.length > 0) {
-        // 移除最后一个点
-        currentLinePoints.value.pop();
-        // 清除当前正在绘制的线
-        clearCurrentLine();
-        if (currentLinePoints.value.length >= 2) {
-          // 重新绘制线
-          addLineByLatLon(currentLinePoints.value);
+      if (event.key === 'Escape') {
+        if (activeTool.value === '标线' && currentLinePoints.value.length > 0) {
+          // 移除最后一个点
+          currentLinePoints.value.pop();
+          // 清除当前正在绘制的线
+          clearCurrentLine();
+          if (currentLinePoints.value.length >= 2) {
+            // 重新绘制线
+            addLineByLatLon(currentLinePoints.value);
+          }
+        } else if (activeTool.value === '标面' && currentPolygonPoints.value.length > 0) {
+          if (currentPolygonPoints.value.length < 4) {
+            // 点数少于 3 个，直接清空所有标记点
+            console.log('清除所有标记点');
+            console.log(currentPolygonPoints.value);
+            currentPolygonPoints.value = [];
+            updateCurrentPolygon();
+          } else {
+            // 移除最后一个标面的点
+            currentPolygonPoints.value.pop();
+            updateCurrentPolygon();
+          }
         }
       }
     };
@@ -180,8 +227,12 @@ export default defineComponent({
 
 
     onMounted(() => {
-      const viewer = initializeCesium();
+      initializeCesium();
       window.addEventListener('keydown', handleKeyDown);
+    });
+
+    onUnmounted(() => {
+      window.removeEventListener('keydown', handleKeyDown);
     });
 
     return {
@@ -200,27 +251,11 @@ export default defineComponent({
       currentViewMode,
       toggleViewMode,
       CameraZoomIn,
-      CameraZoomOut
+      CameraZoomOut,
+      currentPolygonPoints // 如果需要在模板中使用，返回该属性
     };
   },
 });
 </script>
 
-<style scoped>
-.cesium-container {
-  position: relative; 
-  width: 100%; 
-  height: 100vh; 
-  overflow: hidden; 
-}
 
-.zoom-buttons {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 1; /* 确保按钮显示在其他元素之上 */
-}
-</style>

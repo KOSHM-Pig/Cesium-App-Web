@@ -122,7 +122,6 @@ export const useCesium = () => {
       viewer.imageryLayers.removeAll();
 
       showNotification(0, '地图初始化完成', 3000);
-      console.log('Cesium Viewer has been reset to default state.');
     }
   };
 
@@ -154,17 +153,18 @@ export const useCesium = () => {
   const addPointByLatLon = (lat: number, lon: number, height: number, color: Cesium.Color) => {
     // 检查高度值是否合理
     if (height < 0) {
-      console.error('Invalid height value. Height must be a positive number.');
+      showNotification(1, '高度值无效', 3000);
       return;
     }
     const position = Cesium.Cartesian3.fromDegrees(lon, lat, height);
-    console.log('Adding point at lat:', lat, 'lon:', lon, 'height:', height);
+    // 格式化经纬度
+    const formattedLat = formatCoordinate(lat, true);
+    const formattedLon = formatCoordinate(lon, false);
+    showNotification(0, `成功在${formattedLat},${formattedLon},${Math.round(height)}添加点`, 3000);
     addPoint(position, color);
-  
   };
 
-
-  //切换3D/2D视图
+  // 切换3D/2D视图
   const switchTo2D = () => {
     if (viewer) {
       viewer.scene.morphTo2D(1.0);
@@ -189,7 +189,15 @@ export const useCesium = () => {
     return null;
   };
 
-
+  // 辅助函数：格式化经纬度
+const formatCoordinate = (value: number, isLatitude: boolean) => {
+  const absValue = Math.abs(value).toFixed(4);
+  if (isLatitude) {
+    return `${absValue}° ${value >= 0 ? 'N' : 'S'}`;
+  } else {
+    return `${absValue}° ${value >= 0 ? 'E' : 'W'}`;
+  }
+};
       
       // 更新高度信息的函数
       const updateHeightInfo = () => {
@@ -365,6 +373,58 @@ export const useCesium = () => {
     }
   };
 
+  // 存储当前标面过程中的点
+  const currentPolygonPoints = ref<Array<{ lat: number; lon: number; height: number }>>([]);
+  // 存储当前绘制的面实体
+  let currentPolygonEntity: Cesium.Entity | null = null;
+  // 存储所有完成的面实体
+  const completedPolygonEntities = ref<Cesium.Entity[]>([]);
+
+  // 添加面的方法
+  const addPolygon = (points: Array<{ lat: number; lon: number; height: number }>) => {
+    if (viewer && viewer.entities && points.length >= 3) {
+      const positions = points.map(point =>
+        Cesium.Cartesian3.fromDegrees(point.lon, point.lat, point.height)
+      );
+      const entity = viewer.entities.add({
+        polygon: {
+          hierarchy: new Cesium.PolygonHierarchy(positions),
+          material: Cesium.Color.BLUE.withAlpha(0.3) // 设置面的颜色和透明度
+        }
+      });
+      return entity;
+    }
+    return null;
+  };
+
+  // 更新当前面的方法
+  const updateCurrentPolygon = () => {
+    if (currentPolygonEntity && viewer && viewer.entities) {
+      viewer.entities.remove(currentPolygonEntity);
+    }
+    currentPolygonEntity = addPolygon(currentPolygonPoints.value);
+  };
+
+  // 完成当前面绘制的方法
+  const completeCurrentPolygon = () => {
+    if (currentPolygonEntity) {
+      completedPolygonEntities.value.push(currentPolygonEntity);
+      currentPolygonEntity = null;
+      currentPolygonPoints.value = [];
+      showNotification(0, '面绘制完成', 3000);
+    }
+  };
+
+  // 清除所有完成的面
+  const clearAllPolygons = () => {
+    completedPolygonEntities.value.forEach((entity) => {
+      if (viewer && viewer.entities) {
+        viewer.entities.remove(entity);
+      }
+    });
+    completedPolygonEntities.value = [];
+  };
+
   return {
     cesiumContainer,
     selectedMap,
@@ -389,12 +449,18 @@ export const useCesium = () => {
     addLine,
     addLineByLatLon,
     clearCurrentLine,
-    completeCurrentLine
+    completeCurrentLine,
+    completeCurrentPolygon,
+    clearAllPolygons,
+    updateCurrentPolygon,
+    addPolygon,
+    currentPolygonPoints // 添加这一行
+  };
 
     
     
   };
-};
+
 
 
 
