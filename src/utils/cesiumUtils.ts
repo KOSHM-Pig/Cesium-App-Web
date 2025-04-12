@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { mapProviders } from './mapProviders';
 import NotificationBox from '../components/NotificationBox.vue';
 import { showNotification } from '../utils/notification';
+import { show } from 'vue-cesium/es/utils/cesium-props.js';
 
 const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MWU0NGIwMS1hZWQyLTRlODktYmExMi04NzJjOGYyMTE5Y2EiLCJpZCI6MjkxMjMzLCJpYXQiOjE3NDQzNjQ4ODF9.huZ7JqhHqnuhQWzjP6qxJIS6LCUPpbArJqZd1JzTfUA'; // 替换实际token
 
@@ -133,7 +134,6 @@ export const useCesium = () => {
     if (viewer) {
       viewer.imageryLayers.removeAll();
       loadMap('arcgis');
-      console.log('viewer',viewer)
 
       showNotification(0, '地图初始化完成', 3000);
     }
@@ -153,7 +153,7 @@ export const useCesium = () => {
 // 新增删除实体的方法
 const deleteEntity = (entityId: string | Cesium.Entity) => {
   if (!isViewerInitialized.value || !viewer) {
-    console.error('viewer 未初始化，无法执行删除操作');
+    showNotification(0, '初始化出错 功能无法使用', 3000);
     return;
   }
 
@@ -270,7 +270,7 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
 
   // 添加标记点
   const addPoint = (position: Cesium.Cartesian3, color: Cesium.Color) => {
-    console.log('viewer:' + viewer);
+    
     if (viewer && viewer.entities) {
       pointCounter.value++;
       viewer.entities.add({
@@ -291,7 +291,7 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
         }
       });
     } else {
-      console.log('viewer or viewer.entities is undefined');
+      showNotification(1, '初始化出错，功能无法使用', 3000);
     }
   };
 
@@ -367,7 +367,7 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
     const now = Date.now();
     // 检查是否在节流时间间隔内
     if (now - lastZoomInTime < THROTTLE_INTERVAL) {
-      console.log('操作过于频繁，请稍后再试');
+      showNotification(1, '操作过于频繁，请稍后再试', 3000);
       return;
     }
     lastZoomInTime = now;
@@ -378,7 +378,7 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
     if (viewer) {
       // 检查当前对地高度，如果小于等于 50 米则不进行放大操作
       if (height_num.value && height_num.value <= 50) {
-        console.log('已经达到最小高度，无法继续放大');
+        showNotification(1, '当前对地高度过低，无法放大', 3000);
         return;
       }
 
@@ -407,9 +407,7 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
         duration: 1 // 飞行动画持续时间（秒）
       });
 
-      console.log('CameraZoomIn called');
-      console.log('Current camera position:', currentPosition);
-      console.log('New camera position:', newPosition);
+      
     }
   };
 
@@ -452,9 +450,7 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
         duration: 1 // 飞行动画持续时间（秒）
       });
 
-      console.log('CameraZoomOut called');
-      console.log('Current camera position:', currentPosition);
-      console.log('New camera position:', newPosition);
+
     }
   };
 

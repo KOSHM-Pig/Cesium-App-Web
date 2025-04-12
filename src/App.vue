@@ -62,7 +62,7 @@
       ref="cesiumContainer"
       class="cesium-container"
       :style="{
-        cursor: isOverEntity ? 'pointer' : (activeTool === '标点' || activeTool === '标线' || activeTool === '标面' ? 'crosshair' : 'default')
+        cursor: activeTool ? 'crosshair' : (isOverEntity ? 'pointer' : 'default')
       }"
       @click="handleMapClick($event)"
       @mousemove="handleMouseMove"
@@ -216,6 +216,52 @@ export default defineComponent({
     };
 
     const handleMapClick = (event: MouseEvent) => {
+      // 检查是否处于标记状态
+      if (activeTool.value) {
+        // 标记状态下不处理菜单相关逻辑
+        if (activeTool.value === '标点') {
+          if (longitude_num.value !== null && latitude_num.value !== null) {
+            const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
+            addPointByLatLon(
+              latitude_num.value,
+              longitude_num.value,
+              groundHeight,
+              Cesium.Color.fromCssColorString(selectedColor.value)
+            );
+          }
+        } else if (activeTool.value === '标线') {
+          if (longitude_num.value !== null && latitude_num.value !== null) {
+            const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
+            currentLinePoints.value.push({
+              lat: latitude_num.value,
+              lon: longitude_num.value,
+              height: groundHeight
+            });
+
+            // 清除当前正在绘制的线
+            clearCurrentLine();
+
+            if (currentLinePoints.value.length >= 2) {
+              // 重新绘制当前正在绘制的线
+              addLineByLatLon(currentLinePoints.value,Cesium.Color.fromCssColorString(selectedColor.value));
+            }
+          }
+        } else if (activeTool.value === '标面') {
+          if (longitude_num.value !== null && latitude_num.value !== null) {
+            const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
+            // 收集标面的点
+            currentPolygonPoints.value.push({
+              lat: latitude_num.value,
+              lon: longitude_num.value,
+              height: groundHeight
+            });
+            // 更新多边形
+            updateCurrentPolygon(Cesium.Color.fromCssColorString(selectedColor.value));
+          }
+        }
+        return;
+      }
+
       // 可以调整这个值来改变检测范围
       const pickRadius = 10; 
       const entityId = checkMouseOverEntity(event, pickRadius);
@@ -227,47 +273,6 @@ export default defineComponent({
       } else {
         if (radialMenuRef.value) {
           radialMenuRef.value.closeMenu();
-        }
-      }
-
-      if (activeTool.value === '标点') {
-        if (longitude_num.value !== null && latitude_num.value !== null) {
-          const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
-          addPointByLatLon(
-            latitude_num.value,
-            longitude_num.value,
-            groundHeight,
-            Cesium.Color.fromCssColorString(selectedColor.value)
-          );
-        }
-      } else if (activeTool.value === '标线') {
-        if (longitude_num.value !== null && latitude_num.value !== null) {
-          const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
-          currentLinePoints.value.push({
-            lat: latitude_num.value,
-            lon: longitude_num.value,
-            height: groundHeight
-          });
-
-          // 清除当前正在绘制的线
-          clearCurrentLine();
-
-          if (currentLinePoints.value.length >= 2) {
-            // 重新绘制当前正在绘制的线
-            addLineByLatLon(currentLinePoints.value,Cesium.Color.fromCssColorString(selectedColor.value));
-          }
-        }
-      } else if (activeTool.value === '标面') {
-        if (longitude_num.value !== null && latitude_num.value !== null) {
-          const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
-          // 收集标面的点
-          currentPolygonPoints.value.push({
-            lat: latitude_num.value,
-            lon: longitude_num.value,
-            height: groundHeight
-          });
-          // 更新多边形
-          updateCurrentPolygon(Cesium.Color.fromCssColorString(selectedColor.value));
         }
       }
     };
@@ -317,43 +322,47 @@ export default defineComponent({
 let showTimeout: number | null = null; // 定义显示信息框的定时器
 
 const handleMouseMove = (event: MouseEvent) => {
-  const pickRadius = 7; 
-  const entityId = checkMouseOverEntity(event, pickRadius);
+      if (activeTool.value) {
+        // 标记状态下不处理鼠标悬停实体逻辑
+        return;
+      }
 
-  if (entityId) {
-    // 鼠标在实体上，立即改变光标状态
-    isOverEntity.value = true;
+      const pickRadius = 7; 
+      const entityId = checkMouseOverEntity(event, pickRadius);
 
-    // 清除隐藏信息框的定时器
-    if (hoverTimeout) {
-      clearTimeout(hoverTimeout);
-      hoverTimeout = null;
-    }
+      if (entityId) {
+        // 鼠标在实体上，立即改变光标状态
+        isOverEntity.value = true;
 
-    isEntityVisible.value = true;
+        // 清除隐藏信息框的定时器
+        if (hoverTimeout) {
+          clearTimeout(hoverTimeout);
+          hoverTimeout = null;
+        }
 
+        isEntityVisible.value = true;
 
-    // 更新实体信息
-    entityInfo.value = getSelectedEntityInfo(Object(entityId));
-  } else {
-    // 鼠标不在实体上，立即改变光标状态
-    isOverEntity.value = false;
+        // 更新实体信息
+        entityInfo.value = getSelectedEntityInfo(Object(entityId));
+      } else {
+        // 鼠标不在实体上，立即改变光标状态
+        isOverEntity.value = false;
 
-    // 清除显示信息框的定时器
-    if (showTimeout) {
-      clearTimeout(showTimeout);
-      showTimeout = null;
-    }
+        // 清除显示信息框的定时器
+        if (showTimeout) {
+          clearTimeout(showTimeout);
+          showTimeout = null;
+        }
 
-    // 延迟隐藏信息框
-    if (!hoverTimeout) {
-      hoverTimeout = window.setTimeout(() => {
-        isEntityVisible.value = false; // 隐藏信息框
-        hoverTimeout = null;
-      }, 300); // 延迟 300 毫秒隐藏
-    }
-  }
-};
+        // 延迟隐藏信息框
+        if (!hoverTimeout) {
+          hoverTimeout = window.setTimeout(() => {
+            isEntityVisible.value = false; // 隐藏信息框
+            hoverTimeout = null;
+          }, 300); // 延迟 300 毫秒隐藏
+        }
+      }
+    };
     onMounted(() => {
       initializeCesium();
       window.addEventListener('keydown', handleKeyDown);
