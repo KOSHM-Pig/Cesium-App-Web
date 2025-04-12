@@ -323,7 +323,7 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
   // 存储当前正在绘制的线实体
   let currentLineEntity: Cesium.Entity | null = null;
 
-  const addLine = (positions: Cesium.Cartesian3[]) => {
+  const addLine = (positions: Cesium.Cartesian3[],color:Cesium.Color) => {
     if (viewer && viewer.entities) {
       // 清除之前的当前线实体
       if (currentLineEntity) {
@@ -340,7 +340,7 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
             ];
           })),
           width: 5,
-          material: Cesium.Color.YELLOW
+          material: color
         }
       });
       currentLineEntity = entity;
@@ -350,12 +350,12 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
   };
 
   // 根据经纬度和高度添加标线
-  const addLineByLatLon = (points: Array<{ lat: number; lon: number; height: number }>) => {
+  const addLineByLatLon = (points: Array<{ lat: number; lon: number; height: number }>,color:Cesium.Color) => {
     // 提前缓存转换结果
     const positions = points.map(point =>
       Cesium.Cartesian3.fromDegrees(point.lon, point.lat, point.height)
     );
-    return addLine(positions);
+    return addLine(positions,color);
   };
 
   const clearCurrentLine = () => {
@@ -381,7 +381,7 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
   const completedPolygonEntities = ref<Cesium.Entity[]>([]);
 
   // 添加面的方法
-  const addPolygon = (points: Array<{ lat: number; lon: number; height: number }>) => {
+  const addPolygon = (points: Array<{ lat: number; lon: number; height: number }>,color:Cesium.Color) => {
     if (viewer && viewer.entities && points.length >= 3) {
       const positions = points.map(point =>
         Cesium.Cartesian3.fromDegrees(point.lon, point.lat, point.height)
@@ -389,7 +389,7 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
       const entity = viewer.entities.add({
         polygon: {
           hierarchy: new Cesium.PolygonHierarchy(positions),
-          material: Cesium.Color.BLUE.withAlpha(0.3) // 设置面的颜色和透明度
+          material: color.withAlpha(0.5), // 设置透明度
         }
       });
       return entity;
@@ -398,11 +398,11 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
   };
 
   // 更新当前面的方法
-  const updateCurrentPolygon = () => {
+  const updateCurrentPolygon = (color: Cesium.Color) => {
     if (currentPolygonEntity && viewer && viewer.entities) {
       viewer.entities.remove(currentPolygonEntity);
     }
-    currentPolygonEntity = addPolygon(currentPolygonPoints.value);
+    currentPolygonEntity = addPolygon(currentPolygonPoints.value,color);
   };
 
   // 完成当前面绘制的方法
@@ -411,7 +411,7 @@ const formatCoordinate = (value: number, isLatitude: boolean) => {
       completedPolygonEntities.value.push(currentPolygonEntity);
       currentPolygonEntity = null;
       currentPolygonPoints.value = [];
-      showNotification(0, '面绘制完成', 3000);
+      showNotification(0, '当前面绘制完成', 3000);
     }
   };
 

@@ -81,13 +81,15 @@
   flex-direction: column;
   gap: 10px; /* 工具之间的间距 */
   z-index: 100;
-  /* 添加矩形框样式 */
   background-color: rgba(0, 0, 0, 0.3);
   border-radius: 4px;
   padding: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  /* 确保子元素正确排列 */
+  box-sizing: border-box; 
 }
 
+/* 工具按钮样式 */
 .tool {
   width: 40px; /* 正方形大小 */
   height: 40px;
@@ -98,8 +100,9 @@
   justify-content: center;
   color: white;
   cursor: pointer;
-  /* 添加背景阴影 */
   box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+  /* 确保正确计算宽高 */
+  box-sizing: border-box; 
 }
 
 .tool:hover {
@@ -141,3 +144,35 @@
   gap: 10px;
   z-index: 1; /* 确保按钮显示在其他元素之上 */
 }
+
+/* 颜色选择器样式 */
+.color-picker {
+  width: 40px; /* 正方形大小 */
+  height: 40px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding: 0;
+  /* 确保正确计算宽高 */
+  box-sizing: border-box; 
+}
+
+/* 自定义颜色选择器的显示样式 */
+.color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+.color-picker::-moz-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+

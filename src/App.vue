@@ -2,6 +2,13 @@
   <div class="map-container">
     <!-- 工具栏 -->
     <div class="toolbar">
+      <!-- 颜色选择器 -->
+      <input
+        type="color"
+        class="tool color-picker"
+        v-model="selectedColor"
+        @change="handleColorChange"
+      />
       <div
         class="tool"
         :class="{ 'active': activeTool === tool.name }"
@@ -10,7 +17,9 @@
         @click="handleToolClick(tool.name)"
       >
         <span>{{ tool.name }}</span>
+        
       </div>
+      
     </div>
     <!-- 地图控制部分 -->
     <div class="map-control">
@@ -100,6 +109,14 @@ export default defineComponent({
     ];
     const showAnnularMenu = ref(false);
     const currentLinePoints = ref<Array<{ lat: number; lon: number; height: number }>>([]);
+     // 颜色选择器相关状态
+     const selectedColor = ref('#ff0000'); // 默认红色
+
+    // 处理颜色变化
+    const handleColorChange = () => {
+      // 这里可以添加使用新颜色的逻辑，例如更新标点、标线的颜色
+      showNotification(0,'标记颜色已更改');
+    };
 
     const handleToolClick = (toolName: string) => {
       if (toolName === '标线') {
@@ -147,7 +164,7 @@ export default defineComponent({
             latitude_num.value,
             longitude_num.value,
             groundHeight,
-            Cesium.Color.RED
+            Cesium.Color.fromCssColorString(selectedColor.value)
           );
         }
       } else if (activeTool.value === '标线') {
@@ -164,7 +181,7 @@ export default defineComponent({
 
           if (currentLinePoints.value.length >= 2) {
             // 重新绘制当前正在绘制的线
-            addLineByLatLon(currentLinePoints.value);
+            addLineByLatLon(currentLinePoints.value,Cesium.Color.fromCssColorString(selectedColor.value));
           }
         }
       } else if (activeTool.value === '标面') {
@@ -177,7 +194,7 @@ export default defineComponent({
             height: groundHeight
           });
           // 更新多边形
-          updateCurrentPolygon();
+          updateCurrentPolygon(Cesium.Color.fromCssColorString(selectedColor.value));
         }
       }
     };
@@ -191,7 +208,7 @@ export default defineComponent({
           clearCurrentLine();
           if (currentLinePoints.value.length >= 2) {
             // 重新绘制线
-            addLineByLatLon(currentLinePoints.value);
+            addLineByLatLon(currentLinePoints.value,Cesium.Color.fromCssColorString(selectedColor.value));
           }
         } else if (activeTool.value === '标面' && currentPolygonPoints.value.length > 0) {
           if (currentPolygonPoints.value.length < 4) {
@@ -199,11 +216,11 @@ export default defineComponent({
             console.log('清除所有标记点');
             console.log(currentPolygonPoints.value);
             currentPolygonPoints.value = [];
-            updateCurrentPolygon();
+            updateCurrentPolygon(Cesium.Color.fromCssColorString(selectedColor.value));
           } else {
             // 移除最后一个标面的点
             currentPolygonPoints.value.pop();
-            updateCurrentPolygon();
+            updateCurrentPolygon(Cesium.Color.fromCssColorString(selectedColor.value));
           }
         }
       }
@@ -252,10 +269,12 @@ export default defineComponent({
       toggleViewMode,
       CameraZoomIn,
       CameraZoomOut,
-      currentPolygonPoints // 如果需要在模板中使用，返回该属性
+      selectedColor,
+      handleColorChange
     };
   },
 });
 </script>
+
 
 
