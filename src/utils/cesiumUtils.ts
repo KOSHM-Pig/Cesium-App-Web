@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { mapProviders } from './mapProviders';
 import NotificationBox from '../components/NotificationBox.vue';
 import { showNotification } from '../utils/notification';
-
+import { sendEntityInfoViaWebSocket } from './websocketUtils';
 
 const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MWU0NGIwMS1hZWQyLTRlODktYmExMi04NzJjOGYyMTE5Y2EiLCJpZCI6MjkxMjMzLCJpYXQiOjE3NDQzNjQ4ODF9.huZ7JqhHqnuhQWzjP6qxJIS6LCUPpbArJqZd1JzTfUA'; // 替换实际token
 
@@ -256,7 +256,6 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
 
   // 添加标记点
   const addPoint = (position: Cesium.Cartesian3, color: Cesium.Color) => {
-    
     if (viewer && viewer.entities) {
       pointCounter.value++;
       viewer.entities.add({
@@ -276,6 +275,15 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
           pixelOffset: new Cesium.Cartesian2(0, -10)
         }
       });
+
+      // 从 position 解算出经纬度和高度
+      const cartographic = Cesium.Cartographic.fromCartesian(position);
+      const lat = Cesium.Math.toDegrees(cartographic.latitude);
+      const lon = Cesium.Math.toDegrees(cartographic.longitude);
+      const groundHeight = cartographic.height;
+
+      // 调用 WebSocket 发送信息
+      sendEntityInfoViaWebSocket('点', `点${pointCounter.value}`,String(color), lat, lon, groundHeight);
     } else {
       showNotification(1, '初始化出错，功能无法使用', 3000);
     }

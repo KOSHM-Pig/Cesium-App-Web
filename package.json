@@ -15,7 +15,8 @@
     "vue": "^3.5.13",
     "vue-cesium": "^3.2.9",
     "vue-color": "^2.8.1",
-    "vue3-click-away": "^1.2.4"
+    "vue3-click-away": "^1.2.4",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",
