@@ -59,7 +59,8 @@ export const useCesium = () => {
       creditContainer: document.createElement("div"),
       terrainProvider: Cesium.createWorldTerrain({
 
-      })
+      });
+
     });
 
     // 隐藏版权信息
@@ -279,6 +280,8 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
     } else {
       showNotification(1, '初始化出错，功能无法使用', 3000);
     }
+    const entity = viewer.entities.add({ /*...*/ });
+    return entity;
   };
 
   // 根据经纬度和高度添加点
@@ -289,6 +292,8 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
     const formattedLon = formatCoordinate(lon, false);
     showNotification(0, `成功在 ${formattedLat},${formattedLon},${Math.round(height)}m 添加点`, 3000);
     addPoint(position, color);
+    const entity = viewer.entities.add({ /*...*/ });
+    return entity;
   };
 
   // 切换3D/2D视图
@@ -490,7 +495,8 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
       });
       return polygonEntity;
     }
-    return null;
+    const entity = viewer.entities.add({ /*...*/ });
+    return entity;
   };
 
 // 修改 completeCurrentLine 方法，保存线标签实体
@@ -1140,6 +1146,8 @@ const addEllipsoidCylinderByLatLon = async (
   const formattedLat = formatCoordinate(lat, true);
   const formattedLon = formatCoordinate(lon, false);
   showNotification(0, `成功在纬度 ${formattedLat}，经度 ${formattedLon}，地面高度 ${Math.round(groundHeight)}m 创建椭圆柱`, 3000);
+  const entity = viewer.entities.add({ /*...*/ });
+  return entity;
 };
 
 // 创建指定边数的直棱柱
@@ -1209,6 +1217,8 @@ const addRegularPrism = (
   } else {
     showNotification(1, '初始化出错或边数不在 3 到 8 之间，无法创建多边形棱柱', 3000);
   }
+  const entity = viewer.entities.add({ /*...*/ });
+  return entity;
 };
 
 
