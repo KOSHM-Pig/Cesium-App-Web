@@ -95,13 +95,13 @@ onUnmounted(() => {
 }
 
 .notification-icon {
-  margin-right: 10px;
-  font-size: 20px;
+  margin-right: 7px;
+  font-size: 15px;
 }
 
 .notification-message {
   margin: 0;
-  font-size: 16px;
+  font-size: 13px;
   display: inline;
   color: black;
 }

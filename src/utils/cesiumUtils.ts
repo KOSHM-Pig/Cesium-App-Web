@@ -151,6 +151,7 @@ export const useCesium = () => {
   const polygonLabelEntities = ref<Cesium.Entity[]>([]);
   
 // 新增删除实体的方法
+// 修改 deleteEntity 函数
 const deleteEntity = (entityId: string | Cesium.Entity) => {
   if (!isViewerInitialized.value || !viewer) {
     showNotification(0, '初始化出错 功能无法使用', 3000);
@@ -164,108 +165,93 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
     entity = entityId;
   }
 
-  let entityLabel = '未知实体';
-  let mainEntity: Cesium.Entity | undefined = entity;
-
-  // 检查是否是线标签实体
-  const lineLabelIndex = lineLabelEntities.value.indexOf(entity as Cesium.Entity);
-  if (lineLabelIndex > -1) {
-    mainEntity = completedLineEntities.value[lineLabelIndex];
-    const lineLabelEntity = lineLabelEntities.value[lineLabelIndex];
-    if (lineLabelEntity && lineLabelEntity.label && lineLabelEntity.label.text) {
-      const textProperty = lineLabelEntity.label.text;
-      if (typeof textProperty.getValue === 'function') {
-        entityLabel = textProperty.getValue(Cesium.JulianDate.now());
-      }
-    }
-    // 删除线标签实体
-    viewer.entities.remove(lineLabelEntity);
-    lineLabelEntities.value.splice(lineLabelIndex, 1);
-    // 删除线实体
-    if (mainEntity) {
-      viewer.entities.remove(mainEntity);
-      completedLineEntities.value.splice(lineLabelIndex, 1);
-      lineCounter.value--;
-    }
-    showNotification(0, `已成功删除实体: ${entityLabel}`, 3000);
-    return;
-  }
-
-  // 检查是否是面标签实体
-  const polygonLabelIndex = polygonLabelEntities.value.indexOf(entity as Cesium.Entity);
-  if (polygonLabelIndex > -1) {
-    mainEntity = completedPolygonEntities.value[polygonLabelIndex];
-    const polygonLabelEntity = polygonLabelEntities.value[polygonLabelIndex];
-    if (polygonLabelEntity && polygonLabelEntity.label && polygonLabelEntity.label.text) {
-      const textProperty = polygonLabelEntity.label.text;
-      if (typeof textProperty.getValue === 'function') {
-        entityLabel = textProperty.getValue(Cesium.JulianDate.now());
-      }
-    }
-    // 删除面标签实体
-    viewer.entities.remove(polygonLabelEntity);
-    polygonLabelEntities.value.splice(polygonLabelIndex, 1);
-    // 删除面实体
-    if (mainEntity) {
-      viewer.entities.remove(mainEntity);
-      completedPolygonEntities.value.splice(polygonLabelIndex, 1);
-      polygonCounter.value--;
-    }
-    showNotification(0, `已成功删除实体: ${entityLabel}`, 3000);
-    return;
-  }
-
-  if (mainEntity) {
-    // 先尝试获取普通实体的标签
-    if (mainEntity.label && mainEntity.label.text) {
-      const textProperty = mainEntity.label.text;
-      if (typeof textProperty.getValue === 'function') {
-        entityLabel = textProperty.getValue(Cesium.JulianDate.now());
-      }
-    }
-
-    // 处理线实体
-    const lineIndex = completedLineEntities.value.indexOf(mainEntity);
-    if (lineIndex > -1) {
-      const lineLabelEntity = lineLabelEntities.value[lineIndex];
-      if (lineLabelEntity && lineLabelEntity.label && lineLabelEntity.label.text) {
-        const lineTextProperty = lineLabelEntity.label.text;
-        if (typeof lineTextProperty.getValue === 'function') {
-          entityLabel = lineTextProperty.getValue(Cesium.JulianDate.now());
-        }
-      }
-      if (lineLabelEntity) {
-        viewer.entities.remove(lineLabelEntity);
-        lineLabelEntities.value.splice(lineIndex, 1);
-      }
-      completedLineEntities.value.splice(lineIndex, 1);
-      lineCounter.value--;
-    }
-
-    // 处理面实体
-    const polygonIndex = completedPolygonEntities.value.indexOf(mainEntity);
-    if (polygonIndex > -1) {
-      const polygonLabelEntity = polygonLabelEntities.value[polygonIndex];
-      if (polygonLabelEntity && polygonLabelEntity.label && polygonLabelEntity.label.text) {
-        const polygonTextProperty = polygonLabelEntity.label.text;
-        if (typeof polygonTextProperty.getValue === 'function') {
-          entityLabel = polygonTextProperty.getValue(Cesium.JulianDate.now());
-        }
-      }
-      if (polygonLabelEntity) {
-        viewer.entities.remove(polygonLabelEntity);
-        polygonLabelEntities.value.splice(polygonIndex, 1);
-      }
-      completedPolygonEntities.value.splice(polygonIndex, 1);
-      polygonCounter.value--;
-    }
-
-    // 删除实体
-    viewer.entities.remove(mainEntity);
-    showNotification(0, `已成功删除实体: ${entityLabel}`, 3000);
-  } else {
+  if (!entity) {
     showNotification(1, '未找到要删除的实体', 3000);
+    return;
   }
+
+  let mainEntity: Cesium.Entity = entity;
+  let labelEntity: Cesium.Entity | undefined;
+  let entityLabel = '未知实体';
+  const entityType = getEntityType(entity);
+
+  // 检查传入的是否是标签实体
+  if (entity.label) {
+    // 尝试找到对应的主实体
+    const allEntities = [
+      ...completedLineEntities.value,
+      ...completedPolygonEntities.value,
+      ...ellipsoidCylinderEntities.value,
+      ...polygonPrismEntities.value 
+    ];
+
+    mainEntity = allEntities.find(main => {
+      const foundLabel = getEntityLabelEntity(main);
+      return foundLabel === entity;
+    }) || entity;
+    labelEntity = entity;
+  } else {
+    labelEntity = getEntityLabelEntity(entity);
+  }
+
+  if (labelEntity) {
+    if (labelEntity.label && labelEntity.label.text) {
+      const textProperty = labelEntity.label.text;
+      if (typeof textProperty.getValue === 'function') {
+        entityLabel = textProperty.getValue(Cesium.JulianDate.now());
+      }
+    }
+    // 从对应数组中移除标签实体
+    const removeFromArray = (arr: Cesium.Entity[], item: Cesium.Entity) => {
+      const index = arr.indexOf(item);
+      if (index > -1) {
+        arr.splice(index, 1);
+      }
+    };
+
+    removeFromArray(lineLabelEntities.value, labelEntity);
+    removeFromArray(polygonLabelEntities.value, labelEntity);
+    removeFromArray(ellipsoidCylinderLabelEntities.value, labelEntity);
+    removeFromArray(polygonPrismLabelEntities.value, labelEntity);
+
+    viewer.entities.remove(labelEntity);
+  }
+
+  // 从对应数组中移除主实体并更新计数器
+  switch (entityType) {
+    case '线':
+      const lineIndex = completedLineEntities.value.indexOf(mainEntity);
+      if (lineIndex > -1) {
+        completedLineEntities.value.splice(lineIndex, 1);
+        lineCounter.value--;
+      }
+      break;
+    case '面':
+      const polygonIndex = completedPolygonEntities.value.indexOf(mainEntity);
+      if (polygonIndex > -1) {
+        completedPolygonEntities.value.splice(polygonIndex, 1);
+        polygonCounter.value--;
+      }
+      break;
+    case '椭圆柱':
+      const ellipsoidIndex = ellipsoidCylinderEntities.value.indexOf(mainEntity);
+      console.log('椭圆柱索引:', ellipsoidIndex);
+      if (ellipsoidIndex > -1) {
+        ellipsoidCylinderEntities.value.splice(ellipsoidIndex, 1);
+        lineCounter.value--;
+      }
+      break;
+    case '多边形棱柱':
+      const prismIndex = polygonPrismEntities.value.indexOf(mainEntity);
+      if (prismIndex > -1) {
+        polygonPrismEntities.value.splice(prismIndex, 1);
+        polygonCounter.value--;
+      }
+      break;
+  }
+
+  viewer.entities.remove(mainEntity);
+  showNotification(0, `已成功删除实体: ${entityLabel}`, 3000);
 };
 
   // 添加标记点
@@ -301,7 +287,7 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
     // 格式化经纬度
     const formattedLat = formatCoordinate(lat, true);
     const formattedLon = formatCoordinate(lon, false);
-    showNotification(0, `成功在${formattedLat},${formattedLon},${Math.round(height)}添加点`, 3000);
+    showNotification(0, `成功在 ${formattedLat},${formattedLon},${Math.round(height)}m 添加点`, 3000);
     addPoint(position, color);
   };
 
@@ -332,7 +318,7 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
 
   // 辅助函数：格式化经纬度
   const formatCoordinate = (value: number, isLatitude: boolean) => {
-    const absValue = Math.abs(value).toFixed(4);
+    const absValue = Math.abs(value).toFixed(7);
     if (isLatitude) {
       return `${absValue}° ${value >= 0 ? 'N' : 'S'}`;
     } else {
@@ -624,22 +610,22 @@ const completeCurrentPolygon = () => {
 
 // 获取实体类型
 const getEntityType = (entity: Cesium.Entity | undefined) => {
-
-
-  
   if (!entity) {
-    
     return '未知类型';
   }
   if (entity.point) {
-    
     return '点';
   } else if (entity.polyline) {
-    
     return '线';
   } else if (entity.polygon) {
-    
+    // 检查是否为多边形棱柱
+    if (entity.polygon.extrudedHeight) {
+      return '多边形棱柱';
+    }
     return '面';
+  } else if (entity.ellipsoid) {
+    // 检查是否为椭圆柱
+    return '椭圆柱';
   }
   
   return '未知类型';
@@ -682,6 +668,46 @@ const changePolygonLabel = (entity: Cesium.Entity, newLabel: string) => {
   }
 };
 
+// 改变椭圆柱的标签名字
+const changeEllipsoidCylinderLabel = (entity: Cesium.Entity, newLabel: string) => {
+  console.log('开始执行 changeEllipsoidCylinderLabel 函数');
+  console.log('传入的实体:', entity);
+  console.log('新的标签:', newLabel);
+
+  const labelEntity = getEntityLabelEntity(entity);
+  console.log('获取到的标签实体:', labelEntity);
+
+  if (labelEntity) {
+    if (labelEntity.label) {
+      console.log('准备修改标签实体的文本为:', newLabel);
+      labelEntity.label.text = new Cesium.ConstantProperty(newLabel);
+      showNotification(0, '椭圆柱标签修改成功', 3000);
+      console.log('椭圆柱标签修改成功');
+    } else {
+      showNotification(1, '该椭圆柱标签实体没有标签属性，无法修改', 3000);
+      console.error('该椭圆柱标签实体没有标签属性，无法修改');
+    }
+  } else {
+    showNotification(1, '未找到对应的椭圆柱标签实体，无法修改标签', 3000);
+    console.error('未找到对应的椭圆柱标签实体，无法修改标签');
+  }
+};
+
+// 改变多边形棱柱的标签名字
+const changePolygonPrismLabel = (entity: Cesium.Entity, newLabel: string) => {
+  const labelEntity = getEntityLabelEntity(entity);
+  if (labelEntity) {
+    if (labelEntity.label) {
+      labelEntity.label.text = new Cesium.ConstantProperty(newLabel);
+      showNotification(0, '多边形棱柱标签修改成功', 3000);
+    } else {
+      showNotification(1, '该多边形棱柱标签实体没有标签属性，无法修改', 3000);
+    }
+  } else {
+    showNotification(1, '未找到对应的多边形棱柱标签实体，无法修改标签', 3000);
+  }
+};
+
 // 根据实体类型改变标签名字
 const changeEntityLabel = (entityId: string | Cesium.Entity, newLabel: string) => {
   let entity: Cesium.Entity | undefined;
@@ -713,6 +739,12 @@ const changeEntityLabel = (entityId: string | Cesium.Entity, newLabel: string) =
       break;
     case '面':
       changePolygonLabel(entity, newLabel);
+      break;
+    case '椭圆柱':
+      changeEllipsoidCylinderLabel(entity, newLabel);
+      break;
+    case '多边形棱柱':
+      changePolygonPrismLabel(entity, newLabel);
       break;
     default:
       showNotification(1, '未识别的实体类型，无法修改标签', 3000);
@@ -784,6 +816,16 @@ const changeEntityColor = (entityId: string | Cesium.Entity, newColor: Cesium.Co
     case '面':
       changePolygonColor(mainEntity, newColor);
       break;
+    case '椭圆柱':
+      if (mainEntity.ellipsoid) {
+        mainEntity.ellipsoid.material = new Cesium.ColorMaterialProperty(newColor);
+      }
+      break;
+    case '多边形棱柱':
+      if (mainEntity.polygon) {
+        mainEntity.polygon.material = new Cesium.ColorMaterialProperty(newColor);
+      }
+      break;
     default:
       break;
   }
@@ -792,64 +834,106 @@ const changeEntityColor = (entityId: string | Cesium.Entity, newColor: Cesium.Co
 
 // 获取实体的标签实体
 const getEntityLabelEntity = (entity: Cesium.Entity | undefined): Cesium.Entity | undefined => {
+  console.group('getEntityLabelEntity 调试信息组');
+  console.log('传入的实体:', entity);
+
   if (!entity) {
+    console.log('传入的实体为 undefined，返回 undefined');
+    console.groupEnd();
     return undefined;
   }
 
-  // 先检查当前实体是否就是标签实体
-  if (entity.label) {
-    return entity;
-  }
-
   const entityType = getEntityType(entity);
-  let labelEntities: Cesium.Entity[] = [];
-  let completedEntities: Cesium.Entity[] = [];
+  console.log('实体类型:', entityType);
 
+  let index: number;
   switch (entityType) {
     case '线':
-      labelEntities = lineLabelEntities.value;
-      completedEntities = completedLineEntities.value;
+      index = completedLineEntities.value.indexOf(entity);
+      if (index > -1) {
+        const labelEntity = lineLabelEntities.value[index];
+        console.log('通过索引找到线标签实体:', labelEntity);
+        console.groupEnd();
+        return labelEntity;
+      }
       break;
     case '面':
-      labelEntities = polygonLabelEntities.value;
-      completedEntities = completedPolygonEntities.value;
+      index = completedPolygonEntities.value.indexOf(entity);
+      if (index > -1) {
+        const labelEntity = polygonLabelEntities.value[index];
+        console.log('通过索引找到面标签实体:', labelEntity);
+        console.groupEnd();
+        return labelEntity;
+      }
+      break;
+    case '椭圆柱':
+      index = ellipsoidCylinderEntities.value.indexOf(entity);
+      console.log('椭圆柱实体在 ellipsoidCylinderEntities 中的索引:', index, 'ellipsoidCylinderLabelEntities:', ellipsoidCylinderLabelEntities.value);
+      if (index > -1 && index < ellipsoidCylinderLabelEntities.value.length) {
+        const labelEntity = ellipsoidCylinderLabelEntities.value[index];
+        console.log('通过索引找到椭圆柱标签实体:', labelEntity);
+        console.groupEnd();
+        return labelEntity;
+      }
+      break;
+    case '多边形棱柱':
+      index = polygonPrismEntities.value.indexOf(entity);
+      if (index > -1 && index < polygonPrismLabelEntities.value.length) {
+        const labelEntity = polygonPrismLabelEntities.value[index];
+        console.log('通过索引找到多边形棱柱标签实体:', labelEntity);
+        console.groupEnd();
+        return labelEntity;
+      }
       break;
     default:
+      console.log('未识别的实体类型，返回 undefined');
+      console.groupEnd();
       return undefined;
   }
 
-  // 查找传入实体在 completedEntities 中的索引
-  const index = completedEntities.indexOf(entity);
-  if (index > -1) {
-    const labelEntity = labelEntities[index];
-    return labelEntity;
-  }
-
+  console.log('未找到标签实体，返回 undefined');
+  console.groupEnd();
   return undefined;
 };
 
 // 修改后的 getEntityLabel 函数，使用新封装的函数
 const getEntityLabel = (entity: Cesium.Entity | undefined) => {
+  console.group('getEntityLabel 调试信息组');
+  console.log('传入的实体:', entity);
+
   if (!entity) {
+    console.log('传入的实体为 undefined，返回 "未知标签"');
+    console.groupEnd();
     return '未知标签';
   }
 
   // 先尝试从当前实体获取标签
   if (entity.label && entity.label.text) {
     const textProperty = entity.label.text;
+    console.log('当前实体有标签属性，尝试获取标签文本属性:', textProperty);
     if (typeof textProperty.getValue === 'function') {
-      return textProperty.getValue(Cesium.JulianDate.now());
+      const label = textProperty.getValue(Cesium.JulianDate.now());
+      console.log('从当前实体获取到标签:', label);
+      console.groupEnd();
+      return label;
     }
   }
 
   const labelEntity = getEntityLabelEntity(entity);
+  console.log('通过 getEntityLabelEntity 获取到的标签实体:', labelEntity);
   if (labelEntity && labelEntity.label && labelEntity.label.text) {
     const textProperty = labelEntity.label.text;
+    console.log('标签实体有标签属性，尝试获取标签文本属性:', textProperty);
     if (typeof textProperty.getValue === 'function') {
-      return textProperty.getValue(Cesium.JulianDate.now());
+      const label = textProperty.getValue(Cesium.JulianDate.now());
+      console.log('从标签实体获取到标签:', label);
+      console.groupEnd();
+      return label;
     }
   }
 
+  console.log('未获取到标签，返回 "未知标签"');
+  console.groupEnd();
   return '未知标签';
 };
 
@@ -858,15 +942,41 @@ const getEntityColor = (entity: Cesium.Entity | undefined) => {
   if (!entity) {
     return '未知颜色';
   }
+
+  // 先判断是否为标签实体，如果是则找到对应的主实体
+  const mainEntity = (() => {
+    const lineLabelIndex = lineLabelEntities.value.indexOf(entity);
+    if (lineLabelIndex > -1) {
+      return completedLineEntities.value[lineLabelIndex];
+    }
+
+    const polygonLabelIndex = polygonLabelEntities.value.indexOf(entity);
+    if (polygonLabelIndex > -1) {
+      return completedPolygonEntities.value[polygonLabelIndex];
+    }
+
+    const ellipsoidCylinderLabelIndex = ellipsoidCylinderLabelEntities.value.indexOf(entity);
+    if (ellipsoidCylinderLabelIndex > -1) {
+      return ellipsoidCylinderEntities.value[ellipsoidCylinderLabelIndex];
+    }
+
+    const polygonPrismLabelIndex = polygonPrismLabelEntities.value.indexOf(entity);
+    if (polygonPrismLabelIndex > -1) {
+      return polygonPrismEntities.value[polygonPrismLabelIndex];
+    }
+
+    return entity;
+  })();
+
   try {
     // 处理点实体
-    if (entity.point) {
-      const color = entity.point.color.getValue(Cesium.JulianDate.now());
+    if (mainEntity.point) {
+      const color = mainEntity.point.color.getValue(Cesium.JulianDate.now());
       return color.toCssColorString();
     } 
     // 处理线实体
-    else if (entity.polyline) {
-      const material = entity.polyline.material.getValue(Cesium.JulianDate.now());
+    else if (mainEntity.polyline) {
+      const material = mainEntity.polyline.material.getValue(Cesium.JulianDate.now());
       if (material instanceof Cesium.ColorMaterialProperty) {
         const color = material.color.getValue(Cesium.JulianDate.now());
         return color.toCssColorString();
@@ -876,9 +986,9 @@ const getEntityColor = (entity: Cesium.Entity | undefined) => {
         return material.color.toCssColorString();
       } 
     } 
-    // 处理面实体
-    else if (entity.polygon) {
-      const material = entity.polygon.material.getValue(Cesium.JulianDate.now());
+    // 处理面实体和多边形棱柱
+    else if (mainEntity.polygon) {
+      const material = mainEntity.polygon.material.getValue(Cesium.JulianDate.now());
       if (material instanceof Cesium.ColorMaterialProperty) {
         const color = material.color.getValue(Cesium.JulianDate.now());
         return color.toCssColorString();
@@ -888,39 +998,17 @@ const getEntityColor = (entity: Cesium.Entity | undefined) => {
         return material.color.toCssColorString();
       } 
     } 
-    // 处理标签实体对应的实际实体颜色
-    else {
-      const lineLabelIndex = lineLabelEntities.value.indexOf(entity as Cesium.Entity);
-      if (lineLabelIndex > -1) {
-        const mainLineEntity = completedLineEntities.value[lineLabelIndex];
-        if (mainLineEntity && mainLineEntity.polyline) {
-          const lineMaterial = mainLineEntity.polyline.material.getValue(Cesium.JulianDate.now());
-          if (lineMaterial instanceof Cesium.ColorMaterialProperty) {
-            const color = lineMaterial.color.getValue(Cesium.JulianDate.now());
-            return color.toCssColorString();
-          } else if (lineMaterial instanceof Cesium.Color) {
-            return lineMaterial.toCssColorString();
-          } else if (lineMaterial && lineMaterial.color instanceof Cesium.Color) {
-            return lineMaterial.color.toCssColorString();
-          } 
-        } 
-      }
-
-      const polygonLabelIndex = polygonLabelEntities.value.indexOf(entity as Cesium.Entity);
-      if (polygonLabelIndex > -1) {
-        const mainPolygonEntity = completedPolygonEntities.value[polygonLabelIndex];
-        if (mainPolygonEntity && mainPolygonEntity.polygon) {
-          const polygonMaterial = mainPolygonEntity.polygon.material.getValue(Cesium.JulianDate.now());
-          if (polygonMaterial instanceof Cesium.ColorMaterialProperty) {
-            const color = polygonMaterial.color.getValue(Cesium.JulianDate.now());
-            return color.toCssColorString();
-          } else if (polygonMaterial instanceof Cesium.Color) {
-            return polygonMaterial.toCssColorString();
-          } else if (polygonMaterial && polygonMaterial.color instanceof Cesium.Color) {
-            return polygonMaterial.color.toCssColorString();
-          } 
-        } 
-      }
+    // 处理椭圆柱
+    else if (mainEntity.ellipsoid) {
+      const material = mainEntity.ellipsoid.material.getValue(Cesium.JulianDate.now());
+      if (material instanceof Cesium.ColorMaterialProperty) {
+        const color = material.color.getValue(Cesium.JulianDate.now());
+        return color.toCssColorString();
+      } else if (material instanceof Cesium.Color) {
+        return material.toCssColorString();
+      } else if (material && material.color instanceof Cesium.Color) {
+        return material.color.toCssColorString();
+      } 
     }
   } catch (error) {
     showNotification(1, '获取实体颜色时发生错误', 3000);
@@ -932,16 +1020,12 @@ const getEntityColor = (entity: Cesium.Entity | undefined) => {
 
 // 获取鼠标选中实体的标签、颜色和类型信息的方法
 const getSelectedEntityInfo = (entityId: string | Cesium.Entity) => {
- 
-
   let entity: Cesium.Entity | undefined;
 
   if (typeof entityId === 'string') {
-    // 确保 entityId 是字符串类型
     const validEntityId = typeof entityId === 'string' || typeof entityId === 'number' ? String(entityId) : null;
     if (validEntityId) {
       entity = viewer?.entities.getById(validEntityId);
-    } else {
     }
   } else {
     entity = entityId;
@@ -961,16 +1045,170 @@ const getSelectedEntityInfo = (entityId: string | Cesium.Entity) => {
     mainEntity = completedPolygonEntities.value[polygonLabelIndex];
   }
 
+  // 检查是否是椭圆柱标签实体
+  const ellipsoidCylinderLabelIndex = ellipsoidCylinderLabelEntities.value.indexOf(entity as Cesium.Entity);
+  if (ellipsoidCylinderLabelIndex > -1) {
+    mainEntity = ellipsoidCylinderEntities.value[ellipsoidCylinderLabelIndex];
+  }
+
+  // 检查是否是多边形棱柱标签实体
+  const polygonPrismLabelIndex = polygonPrismLabelEntities.value.indexOf(entity as Cesium.Entity);
+  if (polygonPrismLabelIndex > -1) {
+    mainEntity = polygonPrismEntities.value[polygonPrismLabelIndex];
+  }
+
   const label = getEntityLabel(mainEntity);
   const color = getEntityColor(mainEntity);
   const type = getEntityType(mainEntity);
-
 
   return {
     label,
     color,
     type
   };
+};
+
+// 新增存储椭圆柱标签实体和多边形棱柱标签实体的数组
+const ellipsoidCylinderLabelEntities = ref<Cesium.Entity[]>([]);
+const polygonPrismLabelEntities = ref<Cesium.Entity[]>([]);
+// 新增存储椭圆柱和多边形棱柱主实体的数组
+const ellipsoidCylinderEntities = ref<Cesium.Entity[]>([]);
+const polygonPrismEntities = ref<Cesium.Entity[]>([]);
+// 修改创建椭圆柱的函数，使用 EllipsoidGraphics 并添加标签
+const addEllipsoidCylinder = (
+  position: Cesium.Cartesian3,
+  semiMinorAxis: number,
+  semiMajorAxis: number,
+  height: number,
+  color: Cesium.Color
+) => {
+  if (viewer && viewer.entities) {
+    const ellipsoidEntity = viewer.entities.add({
+      position: position,
+      ellipsoid: {
+        radii: new Cesium.Cartesian3(semiMajorAxis, semiMinorAxis, height / 2),
+        material: new Cesium.ColorMaterialProperty(color) 
+      }
+    });
+
+    const ellipsoidNormal = Cesium.Cartesian3.normalize(position, new Cesium.Cartesian3());
+    const topPosition = Cesium.Cartesian3.add(
+      position,
+      Cesium.Cartesian3.multiplyByScalar(ellipsoidNormal, height / 2, new Cesium.Cartesian3()),
+      new Cesium.Cartesian3()
+    );
+
+    const labelEntity = viewer.entities.add({
+      position: topPosition,
+      point: {
+        pixelSize: 0,
+        color: Cesium.Color.TRANSPARENT
+      },
+      label: {
+        text: `椭圆柱${++lineCounter.value}`,
+        font: '14px sans-serif',
+        fillColor: Cesium.Color.WHITE,
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 2,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -10)
+      }
+    });
+
+    ellipsoidCylinderEntities.value.push(ellipsoidEntity);
+    ellipsoidCylinderLabelEntities.value.push(labelEntity);
+    console.log('椭圆柱实体和标签实体已成功添加', ellipsoidCylinderLabelEntities.value);
+  } else {
+    showNotification(1, '初始化出错，功能无法使用', 3000);
+  }
+};
+
+// 修改后的根据经纬度和高度添加椭圆柱函数
+const addEllipsoidCylinderByLatLon = async (
+  lat: number,
+  lon: number,
+  groundHeight: number, // 新增参数：椭圆圆心的对地高度
+  height: number,
+  semiMinorAxis: number,
+  semiMajorAxis: number,
+  color: Cesium.Color
+) => {
+  // 计算椭圆柱的实际位置，将其放置在指定的地面高度之上
+  const position = Cesium.Cartesian3.fromDegrees(lon, lat, groundHeight + height / 2);
+  addEllipsoidCylinder(position, semiMinorAxis, semiMajorAxis, height, color);
+  const formattedLat = formatCoordinate(lat, true);
+  const formattedLon = formatCoordinate(lon, false);
+  showNotification(0, `成功在纬度 ${formattedLat}，经度 ${formattedLon}，地面高度 ${Math.round(groundHeight)}m 创建椭圆柱`, 3000);
+};
+
+// 创建指定边数的直棱柱
+const addRegularPrism = (
+  centerLat: number,
+  centerLon: number,
+  groundHeight: number,
+  extrudedHeight: number,
+  radius: number,
+  sides: number,
+  color: Cesium.Color
+) => {
+  if (viewer && viewer.entities && sides >= 3 && sides <= 8) {
+    const points: Array<{ lat: number; lon: number; height: number }> = [];
+    const centerPosition = Cesium.Cartesian3.fromDegrees(centerLon, centerLat, groundHeight);
+    const cartographic = Cesium.Cartographic.fromCartesian(centerPosition);
+    const centerLonRad = cartographic.longitude;
+    const centerLatRad = cartographic.latitude;
+
+    for (let i = 0; i < sides; i++) {
+      const angle = (2 * Math.PI * i) / sides;
+      const newLon = centerLonRad + (radius * Math.cos(angle)) / Cesium.Ellipsoid.WGS84.maximumRadius;
+      const newLat = centerLatRad + (radius * Math.sin(angle)) / Cesium.Ellipsoid.WGS84.maximumRadius;
+      points.push({
+        lat: Cesium.Math.toDegrees(newLat),
+        lon: Cesium.Math.toDegrees(newLon),
+        height: groundHeight
+      });
+    }
+
+    const polygonPrismEntity = viewer.entities.add({
+      polygon: {
+        hierarchy: new Cesium.PolygonHierarchy(
+          points.map(point => Cesium.Cartesian3.fromDegrees(point.lon, point.lat, point.height))
+        ),
+        // 底面高度为 groundHeight，向上延伸 extrudedHeight
+        height: groundHeight, 
+        extrudedHeight: groundHeight + extrudedHeight, 
+        material: new Cesium.ColorMaterialProperty(color)
+      }
+    });
+
+    // 计算棱柱顶部中心位置
+    const topCenterPosition = Cesium.Cartesian3.fromDegrees(centerLon, centerLat, groundHeight + extrudedHeight);
+
+    const labelEntity = viewer.entities.add({
+      position: topCenterPosition, // 使用顶部中心位置
+      point: {
+        pixelSize: 0,
+        color: Cesium.Color.TRANSPARENT
+      },
+      label: {
+        text: `多边形棱柱${++polygonCounter.value}`,
+        font: '14px sans-serif',
+        fillColor: Cesium.Color.WHITE,
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 2,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -10)
+      }
+    });
+
+    polygonPrismEntities.value.push(polygonPrismEntity);
+    polygonPrismLabelEntities.value.push(labelEntity);
+    showNotification(0, `成功在纬度 ${formatCoordinate(centerLat, true)}，经度 ${formatCoordinate(centerLon, false)} 创建多边形棱柱`, 3000);
+  } else {
+    showNotification(1, '初始化出错或边数不在 3 到 8 之间，无法创建多边形棱柱', 3000);
+  }
 };
 
 
@@ -1014,7 +1252,10 @@ const getSelectedEntityInfo = (entityId: string | Cesium.Entity) => {
     changeLineColor,
     changePolygonColor,
     changeEntityColor,
-    changeEntityLabel
+    changeEntityLabel,
+    addEllipsoidCylinder, // 导出创建椭圆柱的函数
+    addEllipsoidCylinderByLatLon, // 导出根据经纬度创建椭圆柱的函数
+    addRegularPrism // 导出创建多边形棱柱的函数
   };
 };
 

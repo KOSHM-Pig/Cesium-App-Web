@@ -37,6 +37,8 @@
   height: 100%;
 }
 
+/* 已有状态栏样式 */
+/* 已有状态栏样式 */
 .status-bar {
   position: absolute;
   bottom: 10px;
@@ -48,11 +50,11 @@
   border-radius: 5px;
   font-size: 14px;
   z-index: 100;
-  /* 新增样式，固定宽度 */
-  width: auto; 
+  /* 让内容自动撑开宽度 */
+  width: fit-content; 
   display: flex;
   justify-content: space-around;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* 背景阴影 */
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); 
 }
 
 .status-item {
@@ -234,4 +236,55 @@
   border-radius: 2px;
   transform: translateY(-1px); /* 调整位置，使其与文字垂直居中 */
   vertical-align: middle;
+}
+
+
+/* 修改棱柱编辑框样式 */
+.prism-editor {
+  position: absolute; 
+  /* 调整位置，避免和状态栏重叠 */
+  bottom: 60px; 
+  left: 50%;
+  transform: translateX(-50%);
+  /* 和状态栏背景色一致 */
+  background-color: rgba(0, 0, 0, 0.7); 
+  color: white;
+  /* 和状态栏内边距一致 */
+  padding: 5px 10px; 
+  border-radius: 5px; 
+  font-size: 14px; 
+  z-index: 100; 
+  /* 让宽度和状态栏一样根据内容自适应 */
+  width: fit-content; 
+  display: flex;
+  justify-content: space-around;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); 
+}
+
+.editor-item {
+  display: flex;
+  align-items: center;
+  margin: 0 5px; /* 为每个编辑项添加左右外边距，让元素间有间隔 */
+}
+
+.editor-item label {
+  margin-right: 5px;
+}
+
+.editor-item input,
+.editor-item select {
+  padding: 6px 12px; 
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: background 0.2s;
+  min-width: auto; 
+  /* 可以根据需要调整输入框宽度 */
+  width: 60px; 
+}
+
+.editor-item input:hover,
+.editor-item select:hover {
+  background: rgba(255, 255, 255, 0.9);
 }

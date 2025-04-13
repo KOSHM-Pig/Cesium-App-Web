@@ -49,6 +49,37 @@
         <span>{{ tool.name }}</span>
       </div>
     </div>
+
+        <!-- 棱柱创建数据编辑框 -->
+    <div
+      class="prism-editor"
+      v-if="showPrismEditor"
+      >
+      <div class="editor-item">
+        <label>边数：</label>
+        <select v-model="selectedSides" @change="handleSidesChange">
+          <option v-for="side in [3, 4, 5, 6, 7, 8]" :key="side" :value="side">
+            {{ side }}
+          </option>
+        </select>
+      </div>
+      <div class="editor-item">
+        <label>棱柱高度：</label>
+        <input
+          type="number"
+          v-model.number="prismHeight"
+          placeholder="输入棱柱高度"
+        />
+      </div>
+      <div class="editor-item">
+        <label>底面宽度：</label>
+        <input
+          type="number"
+          v-model.number="prismRadius"
+          placeholder="输入底面宽度"
+        />
+      </div>
+    </div>
     <!-- 地图控制部分 -->
     <div class="map-control">
       <select v-model="selectedMap" @change="handleMapChange">
@@ -136,15 +167,18 @@ export default defineComponent({
       isViewerInitialized,
       changeEntityColor,
       changeEntityLabel,
-      
-      getSelectedEntityInfo // 新增获取实体信息方法
+      getSelectedEntityInfo, // 新增获取实体信息方法
+      addEllipsoidCylinderByLatLon, // 导出根据经纬度创建椭圆柱的函数
+      addRegularPrism
     } = useCesium();
 
     const activeTool = ref<string | null>(null);
     const tools = [
       { name: '标点' },
       { name: '标线' },
-      { name: '标面' }
+      { name: '标面' },
+      { name: '圆柱' },
+      { name: '棱柱' },
     ];
     const showAnnularMenu = ref(false);
     const currentLinePoints = ref<Array<{ lat: number; lon: number; height: number }>>([]);
@@ -156,6 +190,11 @@ export default defineComponent({
       color: '未知颜色',
       type: '未知类型'
     }); // 新增实体信息
+
+    const selectedSides = ref(4); // 默认四边形棱柱
+    const showPrismEditor = ref(false); // 控制棱柱编辑框显示隐藏
+    const prismHeight = ref(100); // 棱柱高度
+    const prismRadius = ref(50); // 棱柱底面宽度
     
     // 引用 RadialMenu 组件实例
     const radialMenuRef = ref<InstanceType<typeof RadialMenu> | null>(null);
@@ -163,6 +202,9 @@ export default defineComponent({
     // 定义菜单位置
     const menuPosition = ref<{ x: number; y: number } | null>(null);
 
+    const handleSidesChange = () => {
+      showNotification(0, `已选择创建 ${selectedSides.value} 边形棱柱`, 3000);
+    };
     // 处理颜色变化
     const handleColorChange = () => {
       // 这里可以添加使用新颜色的逻辑，例如更新标点、标线的颜色
@@ -180,104 +222,115 @@ export default defineComponent({
     };
 
     const handleToolClick = (toolName: string) => {
-      if (toolName === '标线') {
-        if (activeTool.value === '标线') {
-          // 结束当前画线
+      // 切换到其他工具，结束当前画线和标面
+      if (activeTool.value === '标线' && currentLinePoints.value.length >= 2) {
+        completeCurrentLine();
+      }
+      if (activeTool.value === '标面') {
+        completeCurrentPolygon();
+        currentPolygonPoints.value = [];
+      }
+      currentLinePoints.value = [];
+
+      if (activeTool.value === toolName) {
+        // 再次点击相同工具，关闭工具并隐藏棱柱编辑框
+        activeTool.value = null;
+        showPrismEditor.value = false;
+      } else {
+        // 切换到新工具
+        activeTool.value = toolName;
+        // 如果新工具是棱柱，显示编辑框；否则隐藏编辑框
+        showPrismEditor.value = toolName === '棱柱';
+      }
+    };
+const handleMapClick = (event: MouseEvent) => {
+  // 检查是否处于标记状态
+  if (activeTool.value) {
+    if (longitude_num.value !== null && latitude_num.value !== null) {
+      const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
+      switch (activeTool.value) {
+        case '标点':
+          addPointByLatLon(
+            latitude_num.value,
+            longitude_num.value,
+            groundHeight,
+            Cesium.Color.fromCssColorString(selectedColor.value)
+          );
+          break;
+        case '标线':
+          currentLinePoints.value.push({
+            lat: latitude_num.value,
+            lon: longitude_num.value,
+            height: groundHeight
+          });
+          // 清除当前正在绘制的线
+          clearCurrentLine();
           if (currentLinePoints.value.length >= 2) {
-            completeCurrentLine();
+            // 重新绘制当前正在绘制的线
+            addLineByLatLon(currentLinePoints.value, Cesium.Color.fromCssColorString(selectedColor.value));
           }
-          currentLinePoints.value = [];
-          activeTool.value = null;
-        } else {
-          // 开始新的画线
-          activeTool.value = '标线';
+          break;
+        case '标面':
+          // 收集标面的点
+          currentPolygonPoints.value.push({
+            lat: latitude_num.value,
+            lon: longitude_num.value,
+            height: groundHeight
+          });
+          // 更新多边形
+          updateCurrentPolygon(Cesium.Color.fromCssColorString(selectedColor.value));
+          break;
+        case '圆柱':
+          const lat = latitude_num.value;
+          const lon = longitude_num.value;
+          const height = 100; // 椭圆柱高度
+          const semiMinorAxis = 20; // 半短轴
+          const semiMajorAxis = 30; // 半长轴
+          const color = Cesium.Color.fromCssColorString(selectedColor.value);
+          addEllipsoidCylinderByLatLon(lat, lon,groundHeight, height, semiMinorAxis, semiMajorAxis, color);
+          // activeTool.value = null; // 创建完成后取消激活工具
+          break;
+        case '棱柱':
+        if (longitude_num.value !== null && latitude_num.value !== null) {
+          //const extrudedHeight = 100; // 棱柱高度
+          const radius = 50; // 棱柱底面半径
+          addRegularPrism(
+            latitude_num.value,
+            longitude_num.value,
+            groundHeight,
+            prismHeight.value,
+            prismRadius.value,
+            selectedSides.value,
+            Cesium.Color.fromCssColorString(selectedColor.value)
+          );
         }
-      } else if (toolName === '标面') {
-        if (activeTool.value === '标面') {
-          // 结束当前标面
-          completeCurrentPolygon();
-          activeTool.value = null;
-        } else {
-          // 开始新的标面
-          activeTool.value = '标面';
-          // 清空之前的标面点
-          currentPolygonPoints.value = [];
-        }
-      } else {
-        // 切换到其他工具，结束当前画线和标面
-        if (activeTool.value === '标线' && currentLinePoints.value.length >= 2) {
-          completeCurrentLine();
-        }
-        if (activeTool.value === '标面') {
-          completeCurrentPolygon();
-          currentPolygonPoints.value = [];
-        }
-        currentLinePoints.value = [];
-        activeTool.value = activeTool.value === toolName ? null : toolName;
+          // activeTool.value = null; // 创建完成后取消激活工具
+          break;
       }
-    };
-
-    const handleMapClick = (event: MouseEvent) => {
-      // 检查是否处于标记状态
-      if (activeTool.value) {
-        // 标记状态下不处理菜单相关逻辑
-        if (activeTool.value === '标点') {
-          if (longitude_num.value !== null && latitude_num.value !== null) {
-            const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
-            addPointByLatLon(
-              latitude_num.value,
-              longitude_num.value,
-              groundHeight,
-              Cesium.Color.fromCssColorString(selectedColor.value)
-            );
-          }
-        } else if (activeTool.value === '标线') {
-          if (longitude_num.value !== null && latitude_num.value !== null) {
-            const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
-            currentLinePoints.value.push({
-              lat: latitude_num.value,
-              lon: longitude_num.value,
-              height: groundHeight
-            });
-
-            // 清除当前正在绘制的线
-            clearCurrentLine();
-
-            if (currentLinePoints.value.length >= 2) {
-              // 重新绘制当前正在绘制的线
-              addLineByLatLon(currentLinePoints.value,Cesium.Color.fromCssColorString(selectedColor.value));
-            }
-          }
-        } else if (activeTool.value === '标面') {
-          if (longitude_num.value !== null && latitude_num.value !== null) {
-            const groundHeight = getCameraGroundElevation(latitude_num.value, longitude_num.value) || 0;
-            // 收集标面的点
-            currentPolygonPoints.value.push({
-              lat: latitude_num.value,
-              lon: longitude_num.value,
-              height: groundHeight
-            });
-            // 更新多边形
-            updateCurrentPolygon(Cesium.Color.fromCssColorString(selectedColor.value));
-          }
-        }
-        return;
+    } else {
+      if (activeTool.value === '圆柱') {
+        showNotification(1, '经纬度信息不足，无法创建椭圆柱', 3000);
+      } else if (activeTool.value === '棱柱') {
+        showNotification(1, '经纬度信息不足，无法创建多边形棱柱', 3000);
       }
+    }
+    return;
+  }
 
-      // 可以调整这个值来改变检测范围
-      const pickRadius = 10; 
-      const entityId = checkMouseOverEntity(event, pickRadius);
-      if (entityId) {
-        const position = { x: event.clientX, y: event.clientY };
-        if (radialMenuRef.value) {
-          radialMenuRef.value.openMenu(position, entityId);
-        }
-      } else {
-        if (radialMenuRef.value) {
-          radialMenuRef.value.closeMenu();
-        }
-      }
-    };
+  // 可以调整这个值来改变检测范围
+  const pickRadius = 10; 
+  const entityId = checkMouseOverEntity(event, pickRadius);
+  if (entityId) {
+    const position = { x: event.clientX, y: event.clientY };
+    if (radialMenuRef.value) {
+      radialMenuRef.value.openMenu(position, entityId);
+    }
+  } else {
+    if (radialMenuRef.value) {
+      radialMenuRef.value.closeMenu();
+    }
+  }
+};
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -404,7 +457,12 @@ const handleMouseMove = (event: MouseEvent) => {
       handleChangeColor,
       changeEntityColor,
       changeEntityLabel,
-      entityInfo // 导出实体信息
+      entityInfo, // 导出实体信息
+      selectedSides,
+      handleSidesChange,
+      showPrismEditor,
+      prismHeight,
+      prismRadius
     };
   },
 });
