@@ -25,13 +25,28 @@
         </div>
       </div>
     </div>
+
   </div>
+      <!-- 输入框组件 -->
+      <div v-if="showLabelInput" class="label-input-container">
+      <input 
+        v-model="newLabel" 
+        type="text" 
+        placeholder="请输入新标签" 
+        @keyup.enter="submitLabelChange"
+      >
+      <button @click="submitLabelChange">确定</button>
+      <button @click="cancelLabelChange">取消</button>
+    </div>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { showNotification } from '../utils/notification';
 import * as Cesium from 'cesium';
+import { useCesium } from '../utils/cesiumUtils';
+
+const { changeEntityLabel } = useCesium();
 
 export default defineComponent({
   props: {
@@ -50,6 +65,10 @@ export default defineComponent({
     selectedColor: {
       type: String,
       required: true
+    },
+    changeEntityLabel: {
+      type: Function,
+      required: true
     }
   },
   setup(props) {
@@ -59,6 +78,10 @@ export default defineComponent({
     const menuPosition = ref<{ x: number; y: number } | null>(null);
     // 选中的实体 ID
     const selectedEntityId = ref<string | null>(null);
+    // 是否显示标签输入框
+    const showLabelInput = ref(false);
+    // 新标签值
+    const newLabel = ref('');
 
     // 定义菜单项
     const menuItems = [
@@ -70,7 +93,10 @@ export default defineComponent({
         label: '改变颜色',
         action: () => handleChangeColor(),
       },
-      { label: '功能3', action: () => showNotification(0, '功能3执行') },
+      { 
+        label: '修改标签', 
+        action: () => handleChangeLabel() 
+      },
       { label: '功能4', action: () => showNotification(0, '功能4执行') },
       { label: '功能5', action: () => showNotification(0, '功能5执行') },
       { label: '功能6', action: () => showNotification(0, '功能6执行') },
@@ -89,6 +115,7 @@ export default defineComponent({
         closeMenu();
       }
     };
+
     // 处理改变颜色操作
     const handleChangeColor = () => {
       if (!props.isViewerInitialized) {
@@ -103,10 +130,33 @@ export default defineComponent({
       closeMenu();
     };
 
-    // 关闭菜单
-    const closeMenu = () => {
-      isMenuOpen.value = false;
-      selectedEntityId.value = null;
+    // 处理修改标签操作
+    const handleChangeLabel = () => {
+      if (!props.isViewerInitialized) {
+        showNotification(1, 'Cesium Viewer 未初始化，暂无法修改标签', 3000);
+        return;
+      }
+      if (selectedEntityId.value) {
+        showLabelInput.value = true;
+      }
+    };
+
+    // 提交标签修改
+    const submitLabelChange = () => {
+      if (!props.isViewerInitialized) {
+        showNotification(1, 'Cesium Viewer 未初始化，暂无法修改标签', 3000);
+        return;
+      }
+      if (selectedEntityId.value && newLabel.value) {
+        props.changeEntityLabel(selectedEntityId.value, newLabel.value);
+      }
+      showLabelInput.value = false;
+      closeMenu();
+    };
+
+    // 取消标签修改
+    const cancelLabelChange = () => {
+      showLabelInput.value = false;
     };
 
     // 打开菜单
@@ -126,6 +176,14 @@ export default defineComponent({
       return (360 / menuItems.length) * index;
     };
 
+    // 关闭菜单
+    const closeMenu = () => {
+      isMenuOpen.value = false;
+      selectedEntityId.value = null;
+      showLabelInput.value = false;
+      newLabel.value = '';
+    };
+
     return {
       isMenuOpen,
       menuItems,
@@ -133,7 +191,11 @@ export default defineComponent({
       openMenu,
       selectItem,
       menuPosition,
-      getItemAngle
+      getItemAngle,
+      showLabelInput,
+      newLabel,
+      submitLabelChange,
+      cancelLabelChange
     };
   },
 });
@@ -228,5 +290,57 @@ export default defineComponent({
   font-size: 12px;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
   white-space: nowrap;
+}
+
+.label-input-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  z-index: 10000;
+  transition: all 0.3s ease;
+}
+
+.label-input-container input {
+  margin-right: 10px;
+  padding: 5px;
+  background-color: rgba(0, 0, 0, 0.3); /* 修改输入框背景色为浅灰色 */
+  color: white; /* 修改输入框文字颜色为深灰色 */
+  border: 1px solid rgba(0, 0, 0, 0.5); /* 可以添加边框 */
+  border-radius: 4px; /* 可以添加圆角 */
+  
+}
+
+.label-input-container input:focus {
+  border-color: #000; /* 输入框被选中时边框变为黑色 */
+}
+.label-input-container.slide-down {
+  top: 70px; /* 最终位置 */
+  opacity: 1;
+}
+
+.label-input-fade-enter-from,
+.label-input-fade-leave-to {
+  top: 50%;
+  opacity: 0;
+}
+
+.label-input-fade-enter-active,
+.label-input-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+
+.label-input-container button {
+  padding: 4px 10px;
+  margin-right: 5px;
+  background-color: rgba(0, 0, 0, 0.3); /* 修改输入框背景色为浅灰色 */
+  color: white; 
+  border: 1px solid rgba(0, 0, 0, 0.5); /* 可以添加边框 */
+  border-radius: 4px; /* 可以添加圆角 */
 }
 </style>

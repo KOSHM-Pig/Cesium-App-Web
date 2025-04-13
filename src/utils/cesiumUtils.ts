@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { mapProviders } from './mapProviders';
 import NotificationBox from '../components/NotificationBox.vue';
 import { showNotification } from '../utils/notification';
-import { show } from 'vue-cesium/es/utils/cesium-props.js';
+
 
 const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MWU0NGIwMS1hZWQyLTRlODktYmExMi04NzJjOGYyMTE5Y2EiLCJpZCI6MjkxMjMzLCJpYXQiOjE3NDQzNjQ4ODF9.huZ7JqhHqnuhQWzjP6qxJIS6LCUPpbArJqZd1JzTfUA'; // 替换实际token
 
@@ -508,7 +508,7 @@ const deleteEntity = (entityId: string | Cesium.Entity) => {
   };
 
 // 修改 completeCurrentLine 方法，保存线标签实体
-  const completeCurrentLine = () => {
+const completeCurrentLine = () => {
   if (currentLineEntity) {
     lineCounter.value++;
     const positions = currentLineEntity.polyline?.positions.getValue(Cesium.JulianDate.now());
@@ -624,6 +624,8 @@ const completeCurrentPolygon = () => {
 
 // 获取实体类型
 const getEntityType = (entity: Cesium.Entity | undefined) => {
+
+
   
   if (!entity) {
     
@@ -643,6 +645,81 @@ const getEntityType = (entity: Cesium.Entity | undefined) => {
   return '未知类型';
 };
 
+// ... 已有代码 ...
+
+// 改变点的标签名字
+const changePointLabel = (entity: Cesium.Entity, newLabel: string) => {
+  if (entity.label) {
+    // 使用 ConstantProperty 包装字符串
+    entity.label.text = new Cesium.ConstantProperty(newLabel);
+  } 
+};
+
+// 改变线的标签名字
+const changeLineLabel = (entity: Cesium.Entity, newLabel: string) => {
+  const labelEntity = getEntityLabelEntity(entity);
+  if (labelEntity) {
+    if (labelEntity.label) {
+      labelEntity.label.text = new Cesium.ConstantProperty(newLabel);
+      showNotification(0, '线标签修改成功', 3000);
+    } else {
+      showNotification(1, '该线标签实体没有标签属性，无法修改', 3000);
+    }
+  } else {
+    showNotification(1, '未找到对应的线标签实体，无法修改标签', 3000);
+  }
+};
+
+// 改变面的标签名字
+const changePolygonLabel = (entity: Cesium.Entity, newLabel: string) => {
+  const labelEntity = getEntityLabelEntity(entity);
+  if (labelEntity) {
+    if (labelEntity.label) {
+      labelEntity.label.text = new Cesium.ConstantProperty(newLabel);
+    } 
+  } else {
+    showNotification(1, '未找到对应的面标签实体，无法修改标签', 3000);
+  }
+};
+
+// 根据实体类型改变标签名字
+const changeEntityLabel = (entityId: string | Cesium.Entity, newLabel: string) => {
+  let entity: Cesium.Entity | undefined;
+  // 根据 entityId 类型获取实体
+  if (typeof entityId === 'string') {
+    if (!viewer) {
+      showNotification(1, 'Viewer 未初始化，无法修改标签', 3000);
+      return;
+    }
+    entity = viewer.entities.getById(entityId);
+  } else {
+    entity = entityId;
+  }
+
+  if (!entity) {
+    showNotification(1, '未找到对应的实体，无法修改标签', 3000);
+    return;
+  }
+
+  const entityType = getEntityType(entity);
+
+  switch (entityType) {
+    case '点':
+      changePointLabel(entity, newLabel);
+      showNotification(0, '点标签修改成功', 3000);
+      break;
+    case '线':
+      changeLineLabel(entity, newLabel);
+      break;
+    case '面':
+      changePolygonLabel(entity, newLabel);
+      break;
+    default:
+      showNotification(1, '未识别的实体类型，无法修改标签', 3000);
+  }
+};
+
+// ... 已有代码 ...
 
 // 改变点的颜色
 const changePointColor = (entity: Cesium.Entity, newColor: Cesium.Color) => {
@@ -712,26 +789,16 @@ const changeEntityColor = (entityId: string | Cesium.Entity, newColor: Cesium.Co
   }
 };
 
-// 获取实体标签
-const getEntityLabel = (entity: Cesium.Entity | undefined) => {
-  
+
+// 获取实体的标签实体
+const getEntityLabelEntity = (entity: Cesium.Entity | undefined): Cesium.Entity | undefined => {
   if (!entity) {
-    
-    return '未知标签';
+    return undefined;
   }
 
-  // 先尝试从当前实体获取标签
-  
-  if (entity.label && entity.label.text) {
-    const textProperty = entity.label.text;
-    
-    if (typeof textProperty.getValue === 'function') {
-      const labelValue = textProperty.getValue(Cesium.JulianDate.now());
-      
-      return labelValue;
-    }
-  } else {
-    
+  // 先检查当前实体是否就是标签实体
+  if (entity.label) {
+    return entity;
   }
 
   const entityType = getEntityType(entity);
@@ -748,32 +815,44 @@ const getEntityLabel = (entity: Cesium.Entity | undefined) => {
       completedEntities = completedPolygonEntities.value;
       break;
     default:
-      
-      return '未知标签';
+      return undefined;
   }
 
   // 查找传入实体在 completedEntities 中的索引
   const index = completedEntities.indexOf(entity);
   if (index > -1) {
     const labelEntity = labelEntities[index];
-    
-    if (labelEntity && labelEntity.label && labelEntity.label.text) {
-      const textProperty = labelEntity.label.text;
-      if (typeof textProperty.getValue === 'function') {
-        const labelValue = textProperty.getValue(Cesium.JulianDate.now());
-        
-        return labelValue;
-      }
-    } else {
-      
-    }
-  } else {
-
+    return labelEntity;
   }
 
-  
+  return undefined;
+};
+
+// 修改后的 getEntityLabel 函数，使用新封装的函数
+const getEntityLabel = (entity: Cesium.Entity | undefined) => {
+  if (!entity) {
+    return '未知标签';
+  }
+
+  // 先尝试从当前实体获取标签
+  if (entity.label && entity.label.text) {
+    const textProperty = entity.label.text;
+    if (typeof textProperty.getValue === 'function') {
+      return textProperty.getValue(Cesium.JulianDate.now());
+    }
+  }
+
+  const labelEntity = getEntityLabelEntity(entity);
+  if (labelEntity && labelEntity.label && labelEntity.label.text) {
+    const textProperty = labelEntity.label.text;
+    if (typeof textProperty.getValue === 'function') {
+      return textProperty.getValue(Cesium.JulianDate.now());
+    }
+  }
+
   return '未知标签';
 };
+
 
 const getEntityColor = (entity: Cesium.Entity | undefined) => {
   if (!entity) {
@@ -934,7 +1013,8 @@ const getSelectedEntityInfo = (entityId: string | Cesium.Entity) => {
     changePointColor,
     changeLineColor,
     changePolygonColor,
-    changeEntityColor
+    changeEntityColor,
+    changeEntityLabel
   };
 };
 

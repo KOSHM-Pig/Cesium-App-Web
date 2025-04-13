@@ -26,7 +26,8 @@
       :isViewerInitialized="isViewerInitialized"
       :changeEntityColor="changeEntityColor"
       :selectedColor="selectedColor"
-      @change-color="handleChangeColor"
+      :changeEntityLabel="changeEntityLabel"
+      
     />
     <!-- 工具栏 -->
     <div class="toolbar">
@@ -134,6 +135,7 @@ export default defineComponent({
       deleteEntity,
       isViewerInitialized,
       changeEntityColor,
+      changeEntityLabel,
       
       getSelectedEntityInfo // 新增获取实体信息方法
     } = useCesium();
@@ -401,6 +403,7 @@ const handleMouseMove = (event: MouseEvent) => {
       isEntityVisible,
       handleChangeColor,
       changeEntityColor,
+      changeEntityLabel,
       entityInfo // 导出实体信息
     };
   },
