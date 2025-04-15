@@ -288,3 +288,16 @@
 .editor-item select:hover {
   background: rgba(255, 255, 255, 0.9);
 }
+
+.map-container {
+  position: relative;
+  height: 100vh;
+}
+
+.chat-container {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1000;
+  pointer-events: auto;
+}

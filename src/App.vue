@@ -1,4 +1,7 @@
 <template>
+  <div class="chat-container">
+  <ChatBox />
+  </div>
   <div class="map-container">
     <!-- 选中实体信息框，根据 isOverEntity 控制显示隐藏，使用 v-show 结合 CSS 过渡 -->
       <div :class="['selected-entity-info', { fade: isOverEntity, 'fade-out': !isOverEntity }]" v-if="isEntityVisible">
@@ -127,11 +130,13 @@ import './App.css';
 import NotificationBox from './components/NotificationBox.vue';
 import { showNotification } from './utils/notification';
 import RadialMenu from './components/RadialMenu.vue';
+import ChatBox from './components/ChatBox.vue';
 
 export default defineComponent({
   components: {
     NotificationBox,
-    RadialMenu
+    RadialMenu,
+    ChatBox
   },
   setup() {
     const {
